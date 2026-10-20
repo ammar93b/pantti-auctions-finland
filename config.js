@@ -13,7 +13,7 @@ module.exports = {
   capOverMetal: { coins: 1.10, silver: 1.00 },
 
   // BR = gross weight (the lot holds other material too): the share of it counted as silver
-  brSilverShare: 0.35,
+  brSilverShare: 0.30,
 
   // Run times, Helsinki time (the scheduler starts the agent at these; later ones are retries)
   schedule: {

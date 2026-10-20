@@ -29,7 +29,7 @@ Every spec follows the owner's back-end template, `_spec-template.md` (project r
 
 - Two lists per auction: coins and medals (category 5) and silver (category 2).
 - Coins: never bid more than 10 % above metal value. Silver: never above metal value.
-- BR (gross-weight) silver rows count 35 % of their weight as silver.
+- BR (gross-weight) silver rows count 30 % of their weight as silver (changed from 35 % on 20 Oct 2026).
 - Metal content only from the auction's own tables, never from guesses or AI.
 - Friday list at 17:00; Tuesday bid advice at 17:00. Advice only: the agent never bids.
 - Separate from the Huuto/Tori Market Watch: own repo (public), own folder, own schedule. It does not need to run all the time.

@@ -19,7 +19,7 @@ It is **not** an always-on service. Your computer's scheduler starts it at a few
 
 - **Two lists per auction:** coins and medals (category 5) and silver (category 2).
 - **Metal content from the auction's own table**, row by row: description, weight in grams, fineness code (`H925`, `H830BR`, `585`, `999,9` …). Anything not clearly stated (no weight, no fineness, plated, gold and silver mixed) is marked **check by hand**, never guessed.
-- **BR rows** (gross weight, the lot holds other material too) count **35 %** of their weight as silver. 1000 g of 830 BR = 350 g silver = 290.5 g fine. Gross-weight gold is checked by hand.
+- **BR rows** (gross weight, the lot holds other material too) count **30 %** of their weight as silver. 1000 g of 830 BR = 300 g silver = 249 g fine. Gross-weight gold is checked by hand.
 - **Metal value** = fine grams × today's spot (gold-api.com × the ECB euro rate).
 - **Next legal bid** comes from the lot's live bid feed (the same call the lot page makes): top bid + minimum raise, or the start price when there are no bids.
 - **Your limits:** coins at most **10 % above** metal value; silver **never above** it.
@@ -50,7 +50,7 @@ cd helsingin-pantti-agent
 npm test                         # all tests should pass; there is nothing to install
 ```
 
-**Phone:** install ntfy, make a private topic name (`echo pantti-$(openssl rand -hex 5)`), and subscribe to it in the app.
+**Phone:** install ntfy, make a private topic name just for this agent (`echo pantti-$(openssl rand -hex 5)`), and subscribe to it in the app. Use a separate topic for each app you run, so each one has its own list of notifications.
 
 ```bash
 cp .env.example .env             # then set NTFY_TOPIC=<your topic>
@@ -84,7 +84,7 @@ npm run schedule:status
 | Setting | Default | Meaning |
 |---|---|---|
 | `capOverMetal` | coins 1.10, silver 1.00 | Your limit as a share of the metal value |
-| `brSilverShare` | 0.35 | Silver share of a BR (gross-weight) row |
+| `brSilverShare` | 0.30 | Silver share of a BR (gross-weight) row |
 | `reference` | auction 966, Friday 2026-10-16 | Anchor for the weekly auction number |
 | `categories` | coins 5, silver 2 | The two lists |
 | `schedule` | see above | Run times |
@@ -118,3 +118,7 @@ test/                tests and saved auction pages
 | Pantti changed its pages | The tests fail on fresh pages; update `parseList` in `src/pantti.js` and the saved pages in `test/fixtures/` |
 
 The full design is in [`specs/`](specs/README.md).
+
+## Licence
+
+[MIT](LICENSE). Use, change and share it freely.

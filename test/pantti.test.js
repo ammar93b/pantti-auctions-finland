@@ -69,20 +69,20 @@ test('valuation: silver lot adds up every sub-lot; BR sub-lots count only the si
   const lot = p.parseList(read('list-silver-p0.html'), 2).find(l => l.id === '15');
   const v = p.valueLot(lot, SPOT);
   // Sub-lots: 35.4 BR×0.925, 71.5×0.916 (not BR), 82.7 BR×0.830, 60 BR×0.813.
-  // BR rows count 35 % of the weight: 35.4×0.35×0.925 + 71.5×0.916 + 82.7×0.35×0.830 + 60×0.35×0.813
-  const expected = 35.4 * 0.35 * 0.925 + 71.5 * 0.916 + 82.7 * 0.35 * 0.830 + 60 * 0.35 * 0.813;
+  // BR rows count 30 % of the weight: 35.4×0.30×0.925 + 71.5×0.916 + 82.7×0.30×0.830 + 60×0.30×0.813
+  const expected = 35.4 * 0.30 * 0.925 + 71.5 * 0.916 + 82.7 * 0.30 * 0.830 + 60 * 0.30 * 0.813;
   assert.equal(v.status, 'ok');
   assert.ok(Math.abs(v.fineG - expected) < 0.001, `fineG ${v.fineG} vs ${expected}`);
   assert.ok(Math.abs(v.meltEur - expected) < 0.01); // silver at 1 €/g in the test spot
   assert.equal(v.brutto, true);
-  assert.equal(v.brShare, 0.35);
+  assert.equal(v.brShare, 0.30);
 });
 
-test('the owner\'s BR example: 1000 g of 830 BR is 35 % silver, so 350 g at 830 = 290.5 g fine', () => {
+test('the owner\'s BR example: 1000 g of 830 BR is 30 % silver, so 300 g at 830 = 249 g fine', () => {
   const lot = { id: 'z', parts: [{ desc: 'ERÄ HOPEAA', weight: '1000', fine: 'H830BR' }] };
   const v = p.valueLot(lot, SPOT);
   assert.equal(v.status, 'ok');
-  assert.equal(v.fineG, 290.5);
+  assert.equal(v.fineG, 249);
 });
 
 test('a lot with an unstated fineness is "check by hand", never valued', () => {

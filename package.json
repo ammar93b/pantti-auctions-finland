@@ -2,6 +2,7 @@
   "name": "helsingin-pantti-agent",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Watches the weekly Helsingin Pantti online auction: Friday list of coin and silver lots valued by weight and fineness, Tuesday bid advice against spot. Phone messages via ntfy. Runs at fixed times (launchd / systemd), no server.",
   "main": "run.js",
   "engines": { "node": ">=18" },

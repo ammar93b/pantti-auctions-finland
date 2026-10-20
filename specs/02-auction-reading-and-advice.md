@@ -56,7 +56,7 @@ Code only, no AI: the auction's own table gives weight and fineness, the public 
 
 **Valuation** (`valueLot`)
 - Every row must state metal, fineness and weight (> 0 g), and all rows the same metal. Otherwise **check by hand** with the reason: `metal not stated (…)`, `fineness not stated (…)`, `weight not stated`, `gold and silver in one lot`, `no weight in the listing`.
-- **BR rows:** silver counts only its share of the gross weight, `config.brSilverShare` = **0.35** (owner, 17 Oct 2026: 1000 g of 830 BR = 350 g silver = 290.5 g fine). A BR **gold** row is check by hand: `gross (BR) gold: the gold share is not known`.
+- **BR rows:** silver counts only its share of the gross weight, `config.brSilverShare` = **0.30** (owner, 20 Oct 2026, was 0.35: 1000 g of 830 BR = 300 g silver = 249 g fine). A BR **gold** row is check by hand: `gross (BR) gold: the gold share is not known`.
 - `fineG` = Σ (weight × [BR share] × fineness), 4 decimals. `meltEur` = `fineG` × spot €/g of the metal, to the cent.
 
 **Spot** (`src/spot.js`): `https://api.gold-api.com/price/XAU` and `/XAG` (USD per troy ounce) × the ECB rate from `https://api.frankfurter.dev/v1/latest?from=USD&to=EUR`; €/g = €/oz ÷ 31.1035. Missing or zero → the run fails (never an old price).
@@ -84,8 +84,8 @@ Code only, no AI: the auction's own table gives weight and fineness, the public 
 
 - [ ] Auction 966 from Friday 16.10.2026 17:00 Helsinki (14:00 UTC, summer time) until Tuesday 20.10.2026 18:00; 967 from Friday 23.10.2026 17:00; 968 from Friday 30.10.2026 17:00 (15:00 UTC, winter time).
 - [ ] With the saved pages: 30 + 8 coin lots, 30 silver lots on page 1; lot 190 has one row `2 KULTARAHAA · 1,7 · 999,9`; lot 15 has four rows.
-- [ ] Lot 190 is 1.6998 g fine gold; lot 15 values its three BR rows at 35 %.
-- [ ] `1000 g, H830BR` alone is 290.5 g fine silver; `10 g, KULTAKORU, H585BR` is check by hand.
+- [ ] Lot 190 is 1.6998 g fine gold; lot 15 values its three BR rows at 30 %.
+- [ ] `1000 g, H830BR` alone is 249 g fine silver; `10 g, KULTAKORU, H585BR` is check by hand.
 - [ ] Bid feed fixture (top 200, raise 10) → next 210; no bids, start 240 → next 240.
 - [ ] A coin with next bid above 1.10 × metal value is `skip`; silver above 1.00 × metal value is `skip`.
 - [ ] A request that times out twice and then works is not an error.
