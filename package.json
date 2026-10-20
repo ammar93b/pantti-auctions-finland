@@ -1,0 +1,22 @@
+{
+  "name": "helsingin-pantti-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Watches the weekly Helsingin Pantti online auction: Friday list of coin and silver lots valued by weight and fineness, Tuesday bid advice against spot. Phone messages via ntfy. Runs at fixed times (launchd / systemd), no server.",
+  "main": "run.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "once": "node run.js",
+    "show": "node run.js --show",
+    "show:list": "node run.js --show --list",
+    "push": "node run.js --show --push",
+    "test-push": "node run.js --test-push",
+    "status": "node run.js --status",
+    "log": "tail -n 60 data/logs/run.log",
+    "schedule:install": "node scripts/schedule.js install",
+    "schedule:remove": "node scripts/schedule.js remove",
+    "schedule:status": "node scripts/schedule.js status",
+    "schedule:print": "node scripts/schedule.js print",
+    "test": "node --test test/pantti.test.js test/state.test.js test/http.test.js"
+  }
+}
