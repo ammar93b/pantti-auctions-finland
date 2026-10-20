@@ -1,11 +1,13 @@
 {
-  "name": "helsingin-pantti-agent",
-  "version": "1.0.0",
+  "name": "pantti-auctions-finland",
+  "version": "2.0.0",
   "private": true,
   "license": "MIT",
-  "description": "Watches the weekly Helsingin Pantti online auction: Friday list of coin and silver lots valued by weight and fineness, Tuesday bid advice against spot. Phone messages via ntfy. Runs at fixed times (launchd / systemd), no server.",
+  "description": "Gold and silver alerts for Finnish pawnshop auctions (Helsingin Pantti, Suomen Panttilaina): each auction when it is listed, then 10 h and 30 min before it closes, with lots valued by weight and fineness at spot and the most to bid. Phone messages via ntfy. Runs from the system scheduler, no server.",
   "main": "run.js",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "once": "node run.js",
     "show": "node run.js --show",
@@ -18,6 +20,6 @@
     "schedule:remove": "node scripts/schedule.js remove",
     "schedule:status": "node scripts/schedule.js status",
     "schedule:print": "node scripts/schedule.js print",
-    "test": "node --test test/pantti.test.js test/state.test.js test/http.test.js"
+    "test": "node --test test/pantti.test.js test/panttilaina.test.js test/agent.test.js test/state.test.js test/http.test.js"
   }
 }

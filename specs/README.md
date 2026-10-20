@@ -1,40 +1,45 @@
-# Helsingin Pantti agent: specifications
+# Pantti auctions Finland: specifications
 
-These files fully specify the Helsingin Pantti agent: a small program that watches the weekly online auction of Helsingin Pantti (huutokauppa.pantti.fi) and sends two phone messages per auction:
+These files fully specify Pantti auctions Finland: a small program that watches the online auctions of two Finnish pawnshops for **gold and silver** and sends phone messages through ntfy:
 
-- **Friday 17:00:** the auction is open, with its coin and silver lots valued by their own weight and fineness.
-- **Tuesday 17:00:** bid advice for every lot: the next legal bid, the owner's limit, and how far below or above spot that bid is.
+- **Helsingin Pantti** (huutokauppa.pantti.fi): one auction a week, Friday 17:00 → Tuesday from about 18:05.
+- **Suomen Panttilaina** (suomenpanttilaina.fi): four offices, each with an auction every two weeks, lots closing from 19:00.
 
-It is **not** an always-on service. The operating system starts it at a few fixed times on Fridays and Tuesdays; each run does what is due and exits. It uses no AI.
+For every auction the owner gets **one message when it is listed**, then **reminders before it closes** (by default 10 h and 30 min before the first watched lot closes), with every lot valued by its own weight and fineness at today's spot price and the most to bid.
+
+It is **not** an always-on service. The operating system starts it every few minutes; each run works out in Helsinki time what is due, does it and exits. A run with nothing due reads nothing from the internet. It uses no AI.
 
 Every spec follows the owner's back-end template, `_spec-template.md` (project root). Each starts with the same rule: it is the single source of truth, and nothing outside it may be assumed.
 
 | # | Spec | What it covers |
 |---|---|---|
-| 01 | [Environment and schedule](01-environment-and-schedule.md) | Requirements, folder, `.env`, commands, the scheduled runs (launchd / systemd), what one run does, lock, logs |
-| 02 | [Auction reading and advice](02-auction-reading-and-advice.md) | Auction number and window, list pages, lot tables, fineness codes, BR lots, valuation, the bid feed, limits, verdicts |
-| 03 | [Messages and state](03-messages-and-state.md) | The Friday and Tuesday messages, the state file that makes each message go out once, failure alerts, saved reports |
+| 01 | [Environment and schedule](01-environment-and-schedule.md) | Requirements, files, `.env`, `config.js`, commands, the scheduled runs (launchd / systemd), lock, logs |
+| 02 | [Helsingin Pantti](02-auction-reading-and-advice.md) | Auction number and window, list pages, lot tables, fineness codes, BR lots, valuation, the bid feed, limits, verdicts |
+| 03 | [Messages and state](03-messages-and-state.md) | Listing checks, reminders, the messages, the state file that makes each message go out once, failure alerts |
+| 04 | [Suomen Panttilaina](04-suomen-panttilaina.md) | Old and new site lists, lot text, offices, bid steps, max bid, auctions by office and day |
 
 ## Words used in every spec
 
 - **Owner**: the single user. Runs the agent on their own Mac or Raspberry Pi.
-- **Auction**: one weekly Pantti auction, numbered (966, 967, …). It opens on Friday at 17:00 and its lots close on Tuesday from about 18:00 (Helsinki time).
-- **Lot**: one item for sale ("myyntierä"), with a table of sub-lots (description, weight in grams, fineness code).
-- **Phase**: `announce` (Friday list) or `advise` (Tuesday bid advice).
+- **Site**: one auction website (a "source" in the code): `pantti` or `panttilaina`.
+- **Auction**: Helsingin Pantti's weekly auction (966, 967, …), or one Suomen Panttilaina office's auction day (Vuosaari 26.10.).
+- **Lot**: one item for sale, with its weight and fineness.
+- **Closing time** of an auction: when its first watched lot closes.
 - **Metal value**: fine grams × today's spot price in euros per gram.
-- **Next legal bid**: the lowest bid the auction accepts now: top bid + minimum raise, or the start price when there are no bids.
-- **Limit**: the most the owner will bid: coins 10 % over metal value, silver never above it.
+- **Limit**: the most the owner will bid: metal value × 1.05 for gold, × 1.03 for silver.
+- **Next bid**: the lowest bid the site accepts now.
+- **Max bid** (Suomen Panttilaina): the highest legal bid amount not above the limit; the site bids for the owner up to it.
 
-## Owner decisions (17–20 Oct 2026)
+## Owner decisions
 
-- Two lists per auction: coins and medals (category 5) and silver (category 2).
-- Coins: never bid more than 10 % above metal value. Silver: never above metal value.
-- BR (gross-weight) silver rows count 30 % of their weight as silver (changed from 35 % on 20 Oct 2026).
-- Metal content only from the auction's own tables, never from guesses or AI.
-- Friday list at 17:00; Tuesday bid advice at 17:00. Advice only: the agent never bids.
-- Separate from the Huuto/Tori Market Watch: own repo (public), own folder, own schedule. It does not need to run all the time.
+- 17 Oct 2026: metal content only from the listing itself, never from guesses or AI; unclear lots are "check by hand". Advice only: the agent never bids.
+- 20 Oct 2026: BR (gross-weight) silver counts 30 % of its weight as silver. Own public repo, own ntfy topic, no always-on service.
+- 21 Oct 2026: Suomen Panttilaina added: only **gold / other** (subcategory 8) and **silver / other** (subcategory 21), where the coins and bars are. The owner always picks up, so shipping is never added to the limit.
+- 21 Oct 2026: limits **gold +5 %**, **silver +3 %** over metal value, for both sites (were coins +10 %, silver 0 %).
+- 21 Oct 2026: messages for every auction: **once when listed**, then **10 h** and **30 min** before closing. Times and links are settings in `config.js`.
+- 21 Oct 2026: repository renamed from `helsingin-pantti-agent` to `pantti-auctions-finland`.
 - No secrets in the public repo: the ntfy topic and the data stay on the owner's computer.
 
 ## Keeping these specs current
 
-When the agent changes, update the matching spec here and `README.md` in the same change, run `npm test`, then commit and push.
+When the agent changes, update the matching spec here, `README.md` and `docs/architecture.*` in the same change, run `npm test`, then commit and push.

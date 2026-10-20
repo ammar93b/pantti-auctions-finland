@@ -1,4 +1,4 @@
-// data/: the state file (what was sent), the run lock, saved reports and the log. Spec 03.
+// data/: the state file (auctions seen, messages sent), the run lock, saved reports and the log. Spec 03.
 
 const fs = require('fs');
 const path = require('path');
@@ -7,21 +7,25 @@ const { DATA } = require('./env');
 const STATE = () => path.join(DATA, 'state.json');
 const LOCK = () => path.join(DATA, 'run.lock');
 const LOG = () => path.join(DATA, 'logs', 'run.log');
-const KEEP_MS = 8 * 7 * 86400e3; // state entries are pruned after 8 weeks
+const KEEP_MS = 8 * 7 * 86400e3; // sent / failed entries are pruned after 8 weeks
+const KEEP_AUCTION_MS = 14 * 86400e3; // auctions two weeks after they close
 
 // ── State ───────────────────────────────────────────────────────────────────
 
 function load() {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(STATE(), 'utf8')); } catch {}
-  return { sent: s.sent || {}, done: s.done || {}, failed: s.failed || {} };
+  return { sent: s.sent || {}, failed: s.failed || {}, auctions: s.auctions || {}, meta: s.meta || {} };
 }
 
 function save(st) {
   fs.mkdirSync(DATA, { recursive: true });
   const cutoff = Date.now() - KEEP_MS;
-  for (const group of [st.sent, st.done, st.failed]) {
+  for (const group of [st.sent, st.failed]) {
     for (const [k, t] of Object.entries(group)) if (new Date(t).getTime() < cutoff) delete group[k];
+  }
+  for (const [k, a] of Object.entries(st.auctions || {})) {
+    if (Date.parse(a.closesAt) < Date.now() - KEEP_AUCTION_MS) delete st.auctions[k];
   }
   // Write then rename, so a killed run never leaves half a file
   fs.writeFileSync(`${STATE()}.tmp`, JSON.stringify(st, null, 2));
@@ -79,7 +83,8 @@ function writeReport(name, textContent) {
 
 function log(...parts) {
   const line = `${new Date().toLocaleString('fi-FI')} ${parts.join(' ')}`;
-  console.log(line);
+  // The scheduler already sends the output to the log file: print only in a terminal
+  if (process.stdout.isTTY) console.log(line);
   try {
     fs.mkdirSync(path.dirname(LOG()), { recursive: true });
     fs.appendFileSync(LOG(), `${line}\n`);

@@ -1,0 +1,120 @@
+// Shared by both auction sites: Helsinki time, number parsing, fineness codes,
+// valuation, the owner's limits and number formatting. Specs 02–04.
+
+const TZ = 'Europe/Helsinki';
+
+// ── Helsinki time ───────────────────────────────────────────────────────────
+
+const fmt = new Intl.DateTimeFormat('en-GB', {
+  timeZone: TZ, weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+});
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Wall-clock parts of an instant in Helsinki
+function hel(date) {
+  const p = {};
+  for (const x of fmt.formatToParts(date)) p[x.type] = x.value;
+  return { y: +p.year, mo: +p.month, d: +p.day, h: +p.hour, mi: +p.minute, s: +p.second, wd: WEEKDAYS.indexOf(p.weekday) };
+}
+
+// The instant at which Helsinki wall-clock time reads y-mo-d h:mi:s
+function helToDate(y, mo, d, h, mi, s = 0) {
+  const guess = Date.UTC(y, mo - 1, d, h, mi, s);
+  const w = hel(new Date(guess));
+  return new Date(guess - (Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi, w.s) - guess));
+}
+
+const two = (n) => String(n).padStart(2, '0');
+// "Mon 26.10. 19:00" in Helsinki time
+function when(date) {
+  const h = hel(new Date(date));
+  return `${WEEKDAYS[h.wd]} ${h.d}.${h.mo}. ${two(h.h)}:${two(h.mi)}`;
+}
+// "19:42:30" in Helsinki time
+const clock = (date) => { const h = hel(new Date(date)); return `${two(h.h)}:${two(h.mi)}${h.s ? `:${two(h.s)}` : ''}`; };
+
+// "10h" → 600, "30min" → 30, "1h30min" → 90, "45m" → 45 (minutes); anything else throws
+function minutesOf(s) {
+  const m = String(s).trim().toLowerCase().match(/^(?:(\d+)\s*h)?\s*(?:(\d+)\s*m(?:in)?)?$/);
+  const total = m ? (+(m[1] || 0)) * 60 + (+(m[2] || 0)) : NaN;
+  if (!(total > 0)) throw new Error(`config: "${s}" is not a time like '10h', '30min' or '1h30min'`);
+  return total;
+}
+// 600 → "10 h", 30 → "30 min", 90 → "1 h 30 min"
+const minutesLabel = (m) => [Math.floor(m / 60) && `${Math.floor(m / 60)} h`, m % 60 && `${m % 60} min`].filter(Boolean).join(' ');
+
+// ── Numbers in lot text ─────────────────────────────────────────────────────
+
+// "200 €", "1 200 €", "12,50 €", "1.200 €" → number
+function parseEuro(s) {
+  const t = String(s ?? '').replace(/[^\d,.]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.');
+  const n = parseFloat(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+// "1,7" → 1.7 (grams); 0 or empty → null
+function parseGrams(s) {
+  const n = parseFloat(String(s ?? '').replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// "H925BR" → 0.925 gross (BR), "585" → 0.585, "585br" → 0.585 gross,
+// "999,9"/"9999" → 0.9999, "1000" → 1; anything else → null
+function parseFineness(code) {
+  const c = String(code || '').toUpperCase().replace(/\s/g, '');
+  const m = c.match(/^H?(\d{3,4}(?:[.,]\d)?)(BR)?$/);
+  if (!m) return null;
+  const v = parseFloat(m[1].replace(',', '.'));
+  let f = null;
+  if (v === 1000) f = 1;
+  else if (v >= 1000 && v <= 9999) f = v / 10000;
+  else if (v >= 100 && v < 1000) f = v / 1000;
+  return f ? { value: f, brutto: !!m[2] } : null;
+}
+
+// Plated, gilded or not solid metal: never valued
+const NOT_SOLID = /kullattu|kultaus|hopeoitu|kultapinnoi|hopeapinnoi|päällys|pinnoite|täytetty|plated|vermeil|setel|kopio|replik/i;
+
+// ── Valuation and limits ────────────────────────────────────────────────────
+
+const check = (reason) => ({ status: 'check', reason });
+
+// parts: [{ metal: 'gold'|'silver', fine: { value, brutto }, grams }], all stated.
+// BR silver counts only the owner's share of its gross weight; BR gold is check by hand.
+function valueParts(parts, spot, cfg) {
+  let metal = null;
+  let fineG = 0;
+  let brutto = false;
+  for (const p of parts) {
+    if (p.fine.brutto && p.metal !== 'silver') return check('gross (br) gold: the gold share is not known');
+    if (metal && metal !== p.metal) return check('gold and silver in one lot');
+    metal = p.metal;
+    fineG += (p.fine.brutto ? p.grams * cfg.brSilverShare : p.grams) * p.fine.value;
+    brutto = brutto || p.fine.brutto;
+  }
+  if (!metal) return check('no weight in the listing');
+  const perG = spot?.[metal]?.eurG;
+  if (!(perG > 0)) return check('no spot price');
+  fineG = Math.round(fineG * 10000) / 10000;
+  return { status: 'ok', metal, fineG, meltEur: Math.round(fineG * perG * 100) / 100, brutto, brShare: brutto ? cfg.brSilverShare : null };
+}
+
+// Round down: to 10 cents under 100 €, whole euros from 100 € (never over the limit)
+const floorEur = (n) => (n < 100 ? Math.floor(n * 10) / 10 : Math.floor(n));
+
+// The most the owner bids for a valued lot: metal value × maxOverSpot of its metal
+const limitFor = (value, cfg) => floorEur(value.meltEur * cfg.maxOverSpot[value.metal]);
+
+// ── Number formatting ───────────────────────────────────────────────────────
+
+const nf = (dec) => new Intl.NumberFormat('fi-FI', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+const eur = (n) => (n == null ? '—' : `${nf(Math.abs(n) < 100 && n % 1 ? 2 : 0).format(n)} €`);
+const pct = (p) => (p == null ? '—' : `${p > 0 ? '+' : ''}${nf(Math.abs(p) < 0.1 ? 1 : 0).format(p * 100)} %`);
+const shorten = (s, n = 60) => (s.length > n ? `${s.slice(0, n - 3)}…` : s);
+
+module.exports = {
+  TZ, hel, helToDate, when, clock, minutesOf, minutesLabel,
+  parseEuro, parseGrams, parseFineness, NOT_SOLID, check, valueParts, floorEur, limitFor,
+  eur, pct, shorten,
+};
