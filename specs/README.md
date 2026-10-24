@@ -5,6 +5,8 @@ These files fully specify Pantti auctions Finland: a small program that watches 
 - **Helsingin Pantti** (huutokauppa.pantti.fi): one auction a week, Friday 17:00 → Tuesday from about 18:05.
 - **Suomen Panttilaina** (suomenpanttilaina.fi): four offices, each with an auction every two weeks, lots closing from 19:00.
 
+Lots are sorted into the owner's **four categories**: gold coins & bars, silver coins & bars, junk gold and junk silver, each with its own limit (spec 05).
+
 For every auction the owner gets **one message when it is listed**, then **reminders before it closes** (by default 10 h and 30 min before the first watched lot closes), with every lot valued by its own weight and fineness at today's spot price and the most to bid.
 
 It is **not** an always-on service. The operating system starts it every few minutes; each run works out in Helsinki time what is due, does it and exits. A run with nothing due reads nothing from the internet. It uses no AI.
@@ -17,6 +19,7 @@ Every spec follows the owner's back-end template, `_spec-template.md` (project r
 | 02 | [Helsingin Pantti](02-auction-reading-and-advice.md) | Auction number and window, list pages, lot tables, fineness codes, BR lots, valuation, the bid feed, limits, verdicts |
 | 03 | [Messages and state](03-messages-and-state.md) | Listing checks, reminders, the messages, the state file that makes each message go out once, failure alerts |
 | 04 | [Suomen Panttilaina](04-suomen-panttilaina.md) | Old and new site lists, lot text, offices, bid steps, max bid, auctions by office and day |
+| 05 | [Item categories](05-categories.md) | The four categories, the lists that feed them, coins-or-junk by text, gold rings and earrings with stones left out, a limit per category |
 
 ## Words used in every spec
 
@@ -26,7 +29,8 @@ Every spec follows the owner's back-end template, `_spec-template.md` (project r
 - **Lot**: one item for sale, with its weight and fineness.
 - **Closing time** of an auction: when its first watched lot closes.
 - **Metal value**: fine grams × today's spot price in euros per gram.
-- **Limit**: the most the owner will bid: metal value × 1.05 for gold, × 1.03 for silver.
+- **Category**: gold coins & bars, silver coins & bars, junk gold or junk silver (spec 05).
+- **Limit**: the most the owner will bid: metal value × the category's `maxOverSpot` (until the owner sets them: 1.05 for gold, 1.03 for silver).
 - **Next bid**: the lowest bid the site accepts now.
 - **Max bid** (Suomen Panttilaina): the highest legal bid amount not above the limit; the site bids for the owner up to it.
 
@@ -38,6 +42,7 @@ Every spec follows the owner's back-end template, `_spec-template.md` (project r
 - 21 Oct 2026: limits **gold +5 %**, **silver +3 %** over metal value, for both sites (were coins +10 %, silver 0 %).
 - 21 Oct 2026: messages for every auction: **once when listed**, then **10 h** and **30 min** before closing. Times and links are settings in `config.js`.
 - 21 Oct 2026: repository renamed from `helsingin-pantti-agent` to `pantti-auctions-finland`.
+- 25 Oct 2026: **four categories**: gold coins & bars, silver coins & bars, junk gold, junk silver, each with its own limit. New lists: Helsingin Pantti category 1 (gold jewellery), Suomen Panttilaina silver cutlery (14) and all gold (category 1). **Gold rings and earrings with stones or br are left out.** Limits per category still to be set (spec 05, open points).
 - No secrets in the public repo: the ntfy topic and the data stay on the owner's computer.
 
 ## Keeping these specs current

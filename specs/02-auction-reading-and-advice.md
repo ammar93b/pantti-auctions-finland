@@ -22,7 +22,7 @@ Code only, no AI: the auction's own table gives weight and fineness, the public 
 - 1 s pause between requests (`config.requestDelayMs`).
 
 **Lists**
-- Each list link has `{auction}` in it, replaced by the auction number; the agent adds `page=<p>` (from 0), `sort=default` and `search=` when missing. Defaults: `https://huutokauppa.pantti.fi/huutokauppa/{auction}/?category=5` (coins & medals) and `…?category=2` (silver).
+- Each list link has `{auction}` in it, replaced by the auction number; the agent adds `page=<p>` (from 0), `sort=default` and `search=` when missing. Defaults: `https://huutokauppa.pantti.fi/huutokauppa/{auction}/?category=5` (coins & medals), `…?category=2` (silver) and `…?category=1` (jewellery: gold, also silver and bronze pieces). Which of the four categories a lot goes to, and which gold rings and earrings are left out: spec 05.
 - Read pages until a page adds no new lots (at most 40 pages).
 - An auction with no lots in any list fails: `Helsingin Pantti auction <n> has no lots (the number changed or it is not open yet)`.
 - Each lot block (`div.col-12.col-sm-6.col-xl-4.item`):
@@ -44,6 +44,7 @@ Code only, no AI: the auction's own table gives weight and fineness, the public 
 |---|---|---|
 | `H925`, `H830`, `585` | 0.925, 0.830, 0.585 | no |
 | `H925BR`, `585BR`, `585br` | 0.925, 0.585 | yes (gross weight) |
+| `TH925` (seen in the jewellery list) | 0.925 | no |
 | `999,9`, `9999` | 0.9999 | no |
 | `1000` | 1.000 | no |
 | anything else (`HOP`, empty) | not stated | — |
@@ -60,7 +61,7 @@ Code only, no AI: the auction's own table gives weight and fineness, the public 
 
 **Spot** (`src/spot.js`): `https://api.gold-api.com/price/XAU` and `/XAG` (USD per troy ounce) × the ECB rate from `https://api.frankfurter.dev/v1/latest?from=USD&to=EUR`; €/g = €/oz ÷ 31.1035. Missing or zero → the run fails (never an old price).
 
-**Limit** = `meltEur × maxOverSpot[metal]` (gold 1.05, silver 1.03), rounded **down** (to 10 cents under 100 €, whole euros from 100 €).
+**Limit** = `meltEur × maxOverSpot` of the lot's category (spec 05; until set: gold 1.05, silver 1.03), rounded **down** (to 10 cents under 100 €, whole euros from 100 €).
 
 **Advice from the list only** (the listing message, `preview`)
 - No bids yet (`startingPrice`): next bid = the start price → `buy` when ≤ limit, else `skip`.

@@ -26,6 +26,7 @@ Each scheduled run (01, `runDue` in `src/agent.js`) asks two questions: is a **l
 - Only auctions of sites that are still enabled get reminders.
 
 **Messages** (`src/messages.js`; ntfy in `src/notify.js`)
+- Inside each listed and reminder message the lots are shown in the four category sections of spec 05 (gold coins & bars, silver coins & bars, junk gold, junk silver), each with its own lines and counts; empty sections are left out. Gold rings and earrings with stones are never shown.
 - `POST https://ntfy.sh/` (root URL) with JSON `{ topic, title, message, priority, click?, actions? }`; priority as a number (default 3, high 4, low 2); at most 3 actions; 15 s time limit; a non-OK answer fails with `ntfy answered <status>: <text>`. No topic: `{ skipped: 'no ntfy topic (NTFY_TOPIC in .env)' }`, which counts as not sent.
 - Numbers in Finnish style: euros with 2 decimals only when not whole and under 100 €; percent with a sign and one decimal under 10 %.
 - Messages over 3 800 characters are cut with "… (more on the computer)".

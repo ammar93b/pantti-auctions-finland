@@ -29,7 +29,7 @@ run.js               one run (this spec)
 config.js            settings: limits, BR share, message times, sites and their list links, delays
 src/env.js           .env loader, data folder, Helsinki time zone
 src/http.js          web requests with retries, HTML text helpers
-src/common.js        Helsinki time, number and fineness parsing, valuation, limits, formatting
+src/common.js        Helsinki time, number and fineness parsing, valuation, categories, limits, formatting
 src/spot.js          gold and silver spot price in euros
 src/pantti.js        Helsingin Pantti (02)
 src/panttilaina.js   Suomen Panttilaina (04)
@@ -51,15 +51,15 @@ data/                created at run time: state, reports, log. Never committed.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `maxOverSpot` | `{ gold: 1.05, silver: 1.03 }` | Limit = metal value × this |
+| `categories` | gold coins & bars, silver coins & bars, junk gold, junk silver, each `{ name, metal, maxOverSpot }` | The four categories and their limits (spec 05); limit = metal value × `maxOverSpot` |
 | `brSilverShare` | 0.30 | Silver share of a gross-weight (br) row |
 | `notify.whenListed` | true | One message when an auction is listed |
 | `notify.beforeClosing` | `['10h', '30min']` | Reminders before closing; `'1h30min'` style; `[]` = none |
 | `notify.listingCheckEvery` | `'60min'` | How often new listings are looked for |
 | `notify.listingCheckHours` | `['08:00', '22:00']` | Helsinki times when listings are looked for |
 | `checkEveryMinutes` | 10 | How often the scheduler starts a run (5–60) |
-| `sources.pantti` | enabled, reference 966 / 2026-10-16, two list links | Helsingin Pantti (02) |
-| `sources.panttilaina` | enabled, two lists × two sites, `warnAfterDaysWithoutLots` 7 | Suomen Panttilaina (04) |
+| `sources.pantti` | enabled, reference 966 / 2026-10-16, three list links (categories 5, 2, 1) | Helsingin Pantti (02, 05) |
+| `sources.panttilaina` | enabled, four lists × two sites (gold / other 8, silver / other 21, silver cutlery 14, all gold 1), `warnAfterDaysWithoutLots` 7 | Suomen Panttilaina (04, 05) |
 | `requestDelayMs`, `requestTimeoutMs`, `retryDelaysMs` | 1 s, 30 s, 5 s / 15 s | Politeness and retries |
 
 A time written wrongly in `notify` (for example `'ten hours'`) stops the run with a message naming the value.

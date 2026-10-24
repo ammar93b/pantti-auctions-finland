@@ -9,7 +9,7 @@ Read Suomen Panttilaina's gold / other and silver / other auction lists on its o
 
 ## Overview
 
-Suomen Panttilaina (suomenpanttilaina.fi) has four offices. Each holds an online auction every two weeks on its own weekday; lots are listed about two weeks ahead and close one by one from 19:00, 30 s apart. A bid in the last 30 s adds 30 s. Bidders can leave a **max bid** that the site raises step by step for them. There is no buyer's fee; the owner always picks up, so shipping is never part of the limit (owner, 21 Oct 2026). Only subcategories **gold / other (8)** and **silver / other (21)** are read: that is where the coins and bars are.
+Suomen Panttilaina (suomenpanttilaina.fi) has four offices. Each holds an online auction every two weeks on its own weekday; lots are listed about two weeks ahead and close one by one from 19:00, 30 s apart. A bid in the last 30 s adds 30 s. Bidders can leave a **max bid** that the site raises step by step for them. There is no buyer's fee; the owner always picks up, so shipping is never part of the limit (owner, 21 Oct 2026). Lists read (owner, 21 and 25 Oct 2026): **gold / other (8)** and **silver / other (21)**, where the coins and bars are; **silver / cutlery (14)** and **all gold (category 1)** for junk silver and junk gold. How lots are sorted into the four categories, and the gold rings and earrings that are left out: spec 05.
 
 Facts from the site (studied 20–21 Oct 2026, auction terms page and site scripts):
 
@@ -40,7 +40,7 @@ The agent does not depend on these weekdays: it reads whatever is listed.
 | `category`, `office` | the two `span`s of `.office-type` ("Kulta / Muut", "Myyrmäen Pantti") |
 
 **New site (Huutokauppa 2.0, the only one from 3 Nov 2026)**
-- `GET <newSiteUrl>` (`https://shop.suomenpanttilaina.fi/auction?SelectedProductSubCategories=8` / `21`; the site selects that subcategory, verified 21 Oct 2026).
+- `GET <newSiteUrl>` (`https://shop.suomenpanttilaina.fi/auction?SelectedProductSubCategories=8` / `21` / `14`, and `?SelectedProductCategories=1` for all gold; the site selects that subcategory or category, verified 21 Oct 2026).
 - The lots are JSON in `<script id="auction-items-json">`. Fields (from the site's own `auction-list.js`, `auction-data-presenter.js`, `bid-handler.js`): `number`, `heading`, `descriptionLong`, `amount`, `bidStartAmount` (the lowest bid the bid form allows: the next bid), `bidCount`, `closingTimeUtcSec`, `isOpen`, `category`, `officeName`. Lots with `isOpen: false` are left out. Link: the list page.
 - **Not yet verified on real lots:** on 21 Oct 2026 the new site listed none. When it does, a page is saved as a test fixture and this reader is checked (field values, paging, lot links).
 - robots.txt of the shop disallows only `/secure` and `/external`; neither is used.
@@ -78,7 +78,7 @@ The agent does not depend on these weekdays: it reads whatever is listed.
 
 ## Out of scope
 
-- Other categories (jewellery, watches, …) unless the owner adds a list in `config.js`.
+- Other categories (watches, art, …) unless the owner adds a list in `config.js`.
 - Logging in, placing max bids, shipping costs.
 - Closed auctions and their prices.
 
