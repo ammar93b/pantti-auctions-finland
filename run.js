@@ -40,10 +40,10 @@ function sourcesArg() {
 function verdictText(a, l) {
   const x = l.advice || {};
   if (x.verdict === 'buy') return a.proxyBids
-    ? `MAX BID ${eur(x.maxBid)} (needs ${eur(x.next)}, ${pct(x.vsSpot)} vs spot, limit ${eur(x.limit)})`
-    : `BID ${eur(x.next)}${x.step ? ` (step ${eur(x.step)})` : ''}, ${pct(x.vsSpot)} vs spot, limit ${eur(x.limit)}`;
-  if (x.verdict === 'skip') return `skip: ${eur(x.next ?? x.now)} is above the limit ${eur(x.limit)}`;
-  if (x.verdict === 'open') return `has bids, now ${eur(x.now)}; limit ${eur(x.limit)} (the live check gives the next bid)`;
+    ? `🟢 MAX BID ${eur(x.maxBid)} (needs ${eur(x.next)}, ${pct(x.vsSpot)} vs spot, 🟢 at ${eur(x.buyAt)}, max ${eur(x.limit)})`
+    : `🟢 BID ${eur(x.next)}${x.step ? ` (step ${eur(x.step)})` : ''}, ${pct(x.vsSpot)} vs spot, max ${eur(x.limit)}`;
+  if (x.verdict === 'skip') return `not at your price: ${eur(x.next ?? x.now)} (${pct(x.vsSpot)} vs spot), 🟢 at ${eur(x.buyAt)}`;
+  if (x.verdict === 'open') return `has bids, now ${eur(x.now)}; 🟢 at ${eur(x.buyAt)} (the live check gives the next bid)`;
   if (x.verdict === 'closed') return 'closed';
   return `check: ${x.reason || '—'}`;
 }
@@ -65,7 +65,8 @@ async function show() {
       say(`   ${lots.length} lots, ${lots.filter(l => l.value.status === 'ok').length} valued by weight`);
       for (const l of lots) {
         const head = `${String(l.id).padStart(5)}  ${l.title.slice(0, 52).padEnd(52)}`;
-        say(l.value.status !== 'ok' ? `${head}  CHECK BY HAND: ${l.value.reason}` : `${head}  metal ${eur(l.value.meltEur)} · ${verdictText(a, l)}`);
+        const cat = (CFG.categories[l.category]?.name || '').padEnd(19);
+        say(l.value.status !== 'ok' ? `${head}  ${''.padEnd(19)}  CHECK BY HAND: ${l.value.reason}` : `${head}  ${cat}  metal ${eur(l.value.meltEur)} · ${verdictText(a, l)}`);
       }
       if (flag('--push')) {
         const r = await notify.push(reminderMessage(a, lots, null, { cfg: CFG }));
@@ -92,6 +93,9 @@ function status() {
   console.log(`Messages: ${n.whenListed ? 'when listed, ' : ''}${agent.reminderMinutes(CFG).map(minutesLabel).join(' and ')} before closing.`);
   console.log(`Listings checked every ${n.listingCheckEvery} between ${n.listingCheckHours.join('–')}; the scheduler runs every ${CFG.checkEveryMinutes} min.`);
   console.log(`Sites: ${agent.enabled(CFG).map(s => s.name).join(', ')}`);
+  console.log('Your limits (% vs metal value, from .env):');
+  for (const c of Object.values(CFG.categories)) console.log(`  ${c.name.padEnd(20)} 🟢 at ${pct(c.alertPct / 100)} · max ${pct(c.maxPct / 100)}`);
+  console.log(`Lots under ${eur(CFG.minMetalEur)} of metal, gross-weight gold and gold rings / earrings with stones are left out.`);
 }
 
 async function main() {

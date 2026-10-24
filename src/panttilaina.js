@@ -5,6 +5,7 @@
 // last 30 s). Bidders can leave a max bid that the site raises step by step for them.
 // The lists read are config.sources.panttilaina.lists: each one is read on the old site
 // (Huutokauppa 1.0, until 2 Nov 2026) and the new one (Huutokauppa 2.0), then merged.
+// Each lot goes to one of the owner's four categories (spec 05).
 //
 // Weight and fineness are in the lot's text ("…, 986, Paino: 14 g"); br = gross weight.
 // The metal is the list's (gold / other, silver / other). Anything unclear is check by hand.
@@ -12,7 +13,7 @@
 const CFG = require('../config');
 const { getSpot } = require('./spot');
 const { get, sleep, text } = require('./http');
-const { helToDate, parseEuro, parseGrams, parseFineness, NOT_SOLID, check, valueParts, limitFor, shorten } = require('./common');
+const { helToDate, parseEuro, parseGrams, parseFineness, NOT_SOLID, check, valueParts, limitsFor, shorten, isCoinText, categoryOf, ringWithStone } = require('./common');
 
 const SITE = 'Suomen Panttilaina';
 const OLD_ORIGIN = 'https://www.suomenpanttilaina.fi';
@@ -88,7 +89,7 @@ function parseOldList(html) {
       next: parseEuro(block.match(/name="start_bud"[^>]*value="([^"]*)"/)?.[1]),
       bids: /^\d+$/.test(bids) ? +bids : 0,
       closesLocal: block.match(/data-closing-datetime="([^"]+)"/)?.[1] || null,
-      category: cat[0] || '', office: cat[1] || '',
+      siteCategory: cat[0] || '', office: cat[1] || '',
     });
   }
   const hits = text(html.match(/class="traffar_varulistor">([\s\S]*?)<\/p>/)?.[1]).match(/(\d+)/);
@@ -136,7 +137,7 @@ function parseNewList(html, pageUrl) {
     next: Number(it.bidStartAmount) || null, // the bid page starts at this amount: the minimum next bid
     bids: Number(it.bidCount) || 0,
     closesAt: it.closingTimeUtcSec ? new Date(it.closingTimeUtcSec * 1000).toISOString() : null,
-    category: String(it.category || ''), office: String(it.officeName || ''),
+    siteCategory: String(it.category || ''), office: String(it.officeName || ''),
   }));
 }
 
@@ -176,19 +177,31 @@ async function loadLots({ spot, limit = Infinity, cfg = CFG } = {}) {
     }
   }
   if (!answered && errors.length) throw new Error(errors.join(' · '));
-  return [...byNumber.values()].map(l => {
-    const value = valueText(l.desc, l.metal, spot, cfg);
-    return { ...l, id: l.number, title: shorten(l.desc || '—'), value };
-  });
+  const lots = [];
+  for (const l of byNumber.values()) {
+    const lot = { ...l, id: l.number, title: shorten(l.desc || '—'), value: valueText(l.desc, l.metal, spot, cfg) };
+    if (!sortLot(lot, cfg)) lots.push(lot);
+  }
+  return lots;
+}
+
+// The lot's category, or why it is left out (spec 05)
+function sortLot(lot, cfg = CFG) {
+  if (lot.value.status === 'hidden') return lot.value.reason;
+  if (lot.metal === 'gold' && ringWithStone(`${lot.desc} ${/Sormukset|Korvakorut/i.test(lot.siteCategory || '') ? 'sormus' : ''}`)) return 'gold ring or earrings with stones';
+  if (lot.value.status !== 'ok') return null; // check by hand: counted, no advice
+  if (lot.value.meltEur < (cfg.minMetalEur || 0)) return 'under the minimum lot value';
+  lot.category = categoryOf(lot.value.metal, isCoinText(lot.desc));
+  return null;
 }
 
 function adviseLot(lot, now = new Date(), cfg = CFG) {
   if (lot.value.status !== 'ok') return { verdict: 'check', reason: lot.value.reason };
   if (lot.closesAt && Date.parse(lot.closesAt) <= now.getTime()) return { verdict: 'closed' };
   if (!(lot.next > 0)) return { verdict: 'check', reason: 'no bid amount in the list' };
-  const limit = limitFor(lot.value, cfg);
-  const maxBid = maxBidFor(limit, lot.next);
-  return { verdict: maxBid ? 'buy' : 'skip', next: lot.next, limit, maxBid, vsSpot: lot.next / lot.value.meltEur - 1, now: lot.bids ? lot.nowPrice : null };
+  const { max, buyAt } = limitsFor(lot.value, lot.category, cfg);
+  const maxBid = maxBidFor(max, lot.next);
+  return { verdict: maxBid && lot.next <= buyAt ? 'buy' : 'skip', next: lot.next, limit: max, buyAt, maxBid, vsSpot: lot.next / lot.value.meltEur - 1, now: lot.bids ? lot.nowPrice : null };
 }
 
 // Lots grouped into auctions (office + day), each closing at its first lot's time
@@ -234,5 +247,5 @@ async function current(auction, { now = new Date(), spot, limit, cfg = CFG } = {
 module.exports = {
   id: 'panttilaina', name: SITE, listed, current,
   OFFICES, STEPS, nextStep, maxBidFor, partOf, valueText, parseOldList, localToIso, parseNewList,
-  auctionOfNumber, loadLots, adviseLot, group,
+  auctionOfNumber, loadLots, sortLot, adviseLot, group,
 };

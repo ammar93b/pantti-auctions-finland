@@ -45,20 +45,21 @@ data/                created at run time: state, reports, log. Never committed.
 .env                 the owner's ntfy topic. Never committed.
 ```
 
-**`.env`** (copied from `.env.example`): `NTFY_TOPIC` (the phone topic; without it nothing is sent and the run says so) and optional `TZ` (default `Europe/Helsinki`, set by `src/env.js` when empty). The loader reads `KEY=value` lines, skips `#` lines, keeps real environment variables, and removes one pair of quotes only when they wrap the whole value.
+**`.env`** (copied from `.env.example`): `NTFY_TOPIC` (the phone topic; without it nothing is sent and the run says so), the owner's limits `<CATEGORY>_MAX_PCT` / `<CATEGORY>_ALERT_PCT` for `GOLD_COINS`, `SILVER_COINS`, `JUNK_GOLD`, `JUNK_SILVER` (spec 05; not set = 0 %), and optional `TZ` (default `Europe/Helsinki`, set by `src/env.js` when empty). The loader reads `KEY=value` lines, skips `#` lines, keeps real environment variables, and removes one pair of quotes only when they wrap the whole value.
 
 **`config.js`** (all settings in one place; the README explains each)
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `categories` | gold coins & bars, silver coins & bars, junk gold, junk silver, each `{ name, metal, maxOverSpot }` | The four categories and their limits (spec 05); limit = metal value × `maxOverSpot` |
+| `categories` | gold coins & bars, silver coins & bars, junk gold, junk silver, each `{ name, metal }` + its limits from `.env` | The four categories, in message order (spec 05) |
+| `minMetalEur` | 30 | Lots with less metal value are left out |
 | `brSilverShare` | 0.30 | Silver share of a gross-weight (br) row |
 | `notify.whenListed` | true | One message when an auction is listed |
 | `notify.beforeClosing` | `['10h', '30min']` | Reminders before closing; `'1h30min'` style; `[]` = none |
 | `notify.listingCheckEvery` | `'60min'` | How often new listings are looked for |
 | `notify.listingCheckHours` | `['08:00', '22:00']` | Helsinki times when listings are looked for |
 | `checkEveryMinutes` | 10 | How often the scheduler starts a run (5–60) |
-| `sources.pantti` | enabled, reference 966 / 2026-10-16, three list links (categories 5, 2, 1) | Helsingin Pantti (02, 05) |
+| `sources.pantti` | enabled, reference 966 / 2026-10-16, three list links (categories 5, 2 `silver`, 1 `gold`) | Helsingin Pantti (02, 05) |
 | `sources.panttilaina` | enabled, four lists × two sites (gold / other 8, silver / other 21, silver cutlery 14, all gold 1), `warnAfterDaysWithoutLots` 7 | Suomen Panttilaina (04, 05) |
 | `requestDelayMs`, `requestTimeoutMs`, `retryDelaysMs` | 1 s, 30 s, 5 s / 15 s | Politeness and retries |
 
@@ -73,7 +74,7 @@ A time written wrongly in `notify` (for example `'ten hours'`) stops the run wit
 | `npm run show:list` | `node run.js --show --list` | Lots and values from the lists only (fast) |
 | `npm run push` | `node run.js --show --push` | Like `show`, and sends each auction's advice to the phone |
 | `npm run test-push` | `node run.js --test-push` | One test message |
-| `npm run status` | `node run.js --status` | Auctions seen, reminders sent, failures, settings |
+| `npm run status` | `node run.js --status` | Auctions seen, reminders sent, failures, settings, the limits in use |
 | `npm run schedule:install` / `:remove` / `:status` / `:print` | `node scripts/schedule.js …` | The scheduled runs |
 | `npm run log` | `tail -n 60 data/logs/run.log` | Recent log lines |
 | `npm test` | `node --test …` | Tests |

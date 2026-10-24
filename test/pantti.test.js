@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const p = require('../src/pantti');
 const { parseFineness } = require('../src/common');
-const CFG = require('../config');
+const CFG = require('./cfg');
 
 const FX = path.join(__dirname, 'fixtures', 'pantti');
 const read = (f) => fs.readFileSync(path.join(FX, f), 'utf8');
@@ -103,33 +103,33 @@ test('next legal bid: top bid + minimum raise, or the start price with no bids',
   assert.equal(p.minimumNext({ topBid: 0, minRaise: 10, startPrice: 240 }), 240);
 });
 
-test('verdicts: gold may go to +5 % over metal value, silver to +3 %', () => {
-  const gold = { value: { status: 'ok', metal: 'gold', meltEur: 169.98 } };
-  const silver = { value: { status: 'ok', metal: 'silver', meltEur: 215.66 } };
+test('verdicts: gold coins up to +5 %; junk silver 🟢 at 5 % below metal value, never above it', () => {
+  const coin = { category: 'goldCoins', value: { status: 'ok', metal: 'gold', meltEur: 169.98 } };
+  const junk = { category: 'junkSilver', value: { status: 'ok', metal: 'silver', meltEur: 215.66 } };
   const open = { timeLeftSec: 3600, biddingAllowed: true };
-  // gold: limit = floor(169.98 × 1.05) = 178 (whole euros from 100 €); next 210 → skip
-  assert.equal(p.advise(gold, { topBid: 200, minRaise: 10, startPrice: 180, ...open }).verdict, 'skip');
-  // gold: next 170 is under the limit → buy
-  const buy = p.advise(gold, { topBid: 160, minRaise: 10, startPrice: 150, ...open });
+  // gold coins: limit = floor(169.98 × 1.05) = 178 (whole euros from 100 €); next 210 → skip
+  assert.equal(p.advise(coin, { topBid: 200, minRaise: 10, startPrice: 180, ...open }, CFG).verdict, 'skip');
+  const buy = p.advise(coin, { topBid: 160, minRaise: 10, startPrice: 150, ...open }, CFG);
   assert.equal(buy.verdict, 'buy');
   assert.equal(buy.next, 170);
   assert.equal(buy.limit, 178);
   assert.equal(buy.step, 10);
-  // silver: limit = floor(215.66 × 1.03) = 222; a start price of 240 is above it, 220 is under it
-  const s = p.advise(silver, { topBid: 0, minRaise: 10, startPrice: 240, ...open });
-  assert.equal(s.verdict, 'skip');
-  assert.equal(s.limit, 222);
-  assert.equal(p.advise(silver, { topBid: 0, minRaise: 10, startPrice: 220, ...open }).verdict, 'buy');
+  // junk silver: 🟢 at floor(215.66 × 0.95) = 204, max floor(215.66) = 215
+  const s = p.advise(junk, { topBid: 0, minRaise: 10, startPrice: 210, ...open }, CFG);
+  assert.equal(s.verdict, 'skip'); // 210 is under the max but above the 🟢 price
+  assert.equal(s.buyAt, 204);
+  assert.equal(s.limit, 215);
+  assert.equal(p.advise(junk, { topBid: 0, minRaise: 10, startPrice: 200, ...open }, CFG).verdict, 'buy');
   // closed lots are not advised
-  assert.equal(p.advise(gold, { topBid: 160, minRaise: 10, startPrice: 150, timeLeftSec: 0, biddingAllowed: true }).verdict, 'closed');
+  assert.equal(p.advise(coin, { topBid: 160, minRaise: 10, startPrice: 150, timeLeftSec: 0, biddingAllowed: true }, CFG).verdict, 'closed');
 });
 
-test('list-only advice: exact without bids; with bids only "over the limit" is certain', () => {
-  const lot = (startingPrice, listPrice) => ({ startingPrice, listPrice, value: { status: 'ok', metal: 'gold', meltEur: 100 } });
-  assert.deepEqual(p.preview(lot(true, 100)).verdict, 'buy'); // start 100 ≤ limit 105
-  assert.deepEqual(p.preview(lot(true, 110)).verdict, 'skip');
-  assert.deepEqual(p.preview(lot(false, 100)).verdict, 'open'); // has bids, now 100: the next bid is unknown
-  assert.deepEqual(p.preview(lot(false, 105)).verdict, 'skip');
+test('list-only advice: exact without bids; with bids only "not at your price" is certain', () => {
+  const lot = (startingPrice, listPrice) => ({ startingPrice, listPrice, category: 'goldCoins', value: { status: 'ok', metal: 'gold', meltEur: 100 } });
+  assert.equal(p.preview(lot(true, 100), CFG).verdict, 'buy'); // start 100 ≤ 105
+  assert.equal(p.preview(lot(true, 110), CFG).verdict, 'skip');
+  assert.equal(p.preview(lot(false, 100), CFG).verdict, 'open'); // has bids, now 100: the next bid is unknown
+  assert.equal(p.preview(lot(false, 105), CFG).verdict, 'skip');
 });
 
 test('the bid feed is read as the lot page reads it (fixture)', () => {
@@ -170,7 +170,8 @@ test('closing times from the list: "päättyy 20.10. klo 18:05", also across New
 test('list links: {auction} is filled in and paging added; the config has both lists', () => {
   assert.equal(p.listUrl('https://huutokauppa.pantti.fi/huutokauppa/{auction}/?category=5', 967, 2),
     'https://huutokauppa.pantti.fi/huutokauppa/967/?category=5&page=2&sort=default&search=');
-  assert.deepEqual(CFG.sources.pantti.lists.map(l => l.name), ['coins & medals', 'silver']);
+  assert.deepEqual(CFG.sources.pantti.lists.map(l => [l.name, l.metal, new URL(l.url.replace('{auction}', 967)).searchParams.get('category')]),
+    [['coins & medals', undefined, '5'], ['silver', 'silver', '2'], ['gold jewellery', 'gold', '1']]);
 });
 
 test('an auction for the messages: first lot closing time, online, next-bid style', () => {
@@ -190,7 +191,7 @@ test('review fixes: pure 1000 fineness, plated Finnish words, mixed metal words,
   assert.equal(p.metalOf('Hopea 925'), 'silver');
   const gold = { id: 'g', parts: [{ desc: 'KULTAKORU', weight: '10', fine: 'H585BR' }] };
   const v = p.valueLot(gold, SPOT);
-  assert.equal(v.status, 'check');
+  assert.equal(v.status, 'hidden'); // gross-weight gold is left out (owner, 25 Oct 2026)
   assert.match(v.reason, /gross \(br\) gold/);
 });
 
@@ -199,4 +200,20 @@ test('a manual run before Friday 17:00 uses the last auction that has opened', (
   const fri10 = new Date('2026-10-23T07:00:00Z'); // Fri 10:00 Helsinki, 967 not open yet
   assert.equal(p.auctionAt(fri10), null);
   assert.equal(p.auctionAt(fri10, { any: true }).number, 966);
+});
+
+test('sorting: coins & bars or junk by the rows\' text; gold only in the gold list; small lots and stones left out', () => {
+  const lot = (rows) => ({ id: 'x', parts: rows.map(([desc, weight, fine]) => ({ desc, weight, fine })) });
+  const REAL = { gold: { eurG: 115 }, silver: { eurG: 1.55 } }; // about the spot of 25 Oct 2026
+  const sort = (l, list) => { l.value = p.valueLot(l, REAL, CFG); return p.sortLot(l, list, CFG) || l.category; };
+  const coins = { name: 'coins & medals' };
+  const gold = { name: 'gold jewellery', metal: 'gold' };
+  assert.equal(sort(lot([['2 KULTARAHAA', '1,7', '999,9']]), coins), 'goldCoins');
+  assert.equal(sort(lot([['HOPEINEN JUHLARAHA 10 €', '25,5', 'H925']]), coins), 'silverCoins');
+  assert.equal(sort(lot([['HOPEINEN JUHLARAHA', '25', 'H925'], ['HOPEALUSIKKA', '30', 'H830']]), coins), 'junkSilver'); // mixed: junk
+  assert.equal(sort(lot([['KULTAKETJU', '5,3', '585']]), gold), 'junkGold');
+  assert.equal(sort(lot([['HOPEAKETJU', '24,7', 'TH925']]), gold), 'not gold'); // silver in the gold list: left out
+  assert.equal(sort(lot([['KULTAINEN KIVISORMUS', '3,2', '585']]), gold), 'gold ring or earrings with stones');
+  assert.equal(sort(lot([['KULTASORMUS', '0,4', '585']]), gold), 'under the minimum lot value'); // 0.234 g × 115 €/g = 27 €
+  assert.equal(sort(lot([['KAULAKORU KALEVALA PRONSSI', '', '']]), gold), 'not gold'); // unknown metal in the gold list: left out
 });

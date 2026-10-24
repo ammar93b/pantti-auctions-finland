@@ -1,5 +1,5 @@
 // Shared by both auction sites: Helsinki time, number parsing, fineness codes,
-// valuation, the owner's limits and number formatting. Specs 02–04.
+// valuation, the four categories, the owner's limits and number formatting. Specs 02–05.
 
 const TZ = 'Europe/Helsinki';
 
@@ -80,14 +80,17 @@ const NOT_SOLID = /kullattu|kultaus|hopeoitu|kultapinnoi|hopeapinnoi|päällys|p
 
 const check = (reason) => ({ status: 'check', reason });
 
+// A lot the owner does not want at all: not valued, not counted, not in any message
+const hidden = (reason) => ({ status: 'hidden', reason });
+
 // parts: [{ metal: 'gold'|'silver', fine: { value, brutto }, grams }], all stated.
-// BR silver counts only the owner's share of its gross weight; BR gold is check by hand.
+// BR silver counts only the owner's share of its gross weight; BR gold is left out (owner).
 function valueParts(parts, spot, cfg) {
   let metal = null;
   let fineG = 0;
   let brutto = false;
   for (const p of parts) {
-    if (p.fine.brutto && p.metal !== 'silver') return check('gross (br) gold: the gold share is not known');
+    if (p.fine.brutto && p.metal !== 'silver') return hidden('gross (br) gold');
     if (metal && metal !== p.metal) return check('gold and silver in one lot');
     metal = p.metal;
     fineG += (p.fine.brutto ? p.grams * cfg.brSilverShare : p.grams) * p.fine.value;
@@ -103,8 +106,33 @@ function valueParts(parts, spot, cfg) {
 // Round down: to 10 cents under 100 €, whole euros from 100 € (never over the limit)
 const floorEur = (n) => (n < 100 ? Math.floor(n * 10) / 10 : Math.floor(n));
 
-// The most the owner bids for a valued lot: metal value × maxOverSpot of its metal
-const limitFor = (value, cfg) => floorEur(value.meltEur * cfg.maxOverSpot[value.metal]);
+// ── Categories (spec 05) ────────────────────────────────────────────────────
+
+// Coins, bars and medals by the lot's own words (kultaraha, juhlaraha, harkko, dukaatti, …)
+const COIN = /raha|kolikk|dukaat|harkko|laatta|unssi|\boz\b|sovereign|krugerrand|dollari|rupla|mitali|markka|\bmk\b/i;
+const isCoinText = (s) => COIN.test(String(s || ''));
+
+// gold / silver + coins or not → goldCoins | silverCoins | junkGold | junkSilver
+function categoryOf(metal, coin) {
+  if (metal === 'gold') return coin ? 'goldCoins' : 'junkGold';
+  if (metal === 'silver') return coin ? 'silverCoins' : 'junkSilver';
+  return null;
+}
+
+// Gold rings and earrings with a stone or gross weight are not wanted (owner, 25 Oct 2026)
+const RING_OR_EARRING = /sormus|korvakoru|korvarenga|korvanap|korvis/i;
+const STONE = /\dbr\b|\bbr\b|kivi|timant|briljant|helmi|\d\s*ct\b|\bct\b|safiiri|rubiini|smaragdi|zirkoni|opaali|granaatti|topaasi|ametisti/i;
+const ringWithStone = (s) => RING_OR_EARRING.test(s) && STONE.test(s);
+
+// The owner's limits for a valued lot of category `cat`: the most to bid (max) and the
+// price at which it is marked 🟢 (buyAt), both rounded down
+function limitsFor(value, cat, cfg) {
+  const c = cfg.categories[cat];
+  return {
+    max: floorEur(value.meltEur * (1 + c.maxPct / 100)),
+    buyAt: floorEur(value.meltEur * (1 + Math.min(c.alertPct ?? c.maxPct, c.maxPct) / 100)),
+  };
+}
 
 // ── Number formatting ───────────────────────────────────────────────────────
 
@@ -115,6 +143,7 @@ const shorten = (s, n = 60) => (s.length > n ? `${s.slice(0, n - 3)}…` : s);
 
 module.exports = {
   TZ, hel, helToDate, when, clock, minutesOf, minutesLabel,
-  parseEuro, parseGrams, parseFineness, NOT_SOLID, check, valueParts, floorEur, limitFor,
+  parseEuro, parseGrams, parseFineness, NOT_SOLID, check, hidden, valueParts, floorEur,
+  isCoinText, categoryOf, ringWithStone, limitsFor,
   eur, pct, shorten,
 };

@@ -37,7 +37,7 @@ The agent does not depend on these weekdays: it reads whatever is listed.
 | `next` | hidden input `start_bud`: the site's minimum next bid (start price without bids; current + step with bids) |
 | `bids` | `span.num-bids` ("-" = 0) |
 | `closesAt` | `data-closing-datetime` ("2026-10-21 19:08:30", Helsinki time) |
-| `category`, `office` | the two `span`s of `.office-type` ("Kulta / Muut", "Myyrmäen Pantti") |
+| `siteCategory`, `office` | the two `span`s of `.office-type` ("Kulta / Muut", "Myyrmäen Pantti") |
 
 **New site (Huutokauppa 2.0, the only one from 3 Nov 2026)**
 - `GET <newSiteUrl>` (`https://shop.suomenpanttilaina.fi/auction?SelectedProductSubCategories=8` / `21` / `14`, and `?SelectedProductCategories=1` for all gold; the site selects that subcategory or category, verified 21 Oct 2026).
@@ -49,18 +49,18 @@ The agent does not depend on these weekdays: it reads whatever is listed.
 - Plated or not solid words (as in 02): check by hand `plated or not solid metal`.
 - A word of the other metal (gold list: `hope`; silver list: `kulta`, `kulla`, `gold`), not counting the makers' names `Kultakeskus` and `kultaseppä…`: `gold and silver in one lot`.
 - Fineness and weight are the number right before "Paino:" and the weight after it: `…, 986, Paino: 14 g`, `500 Paino: 69,8 g`, `925br Paino: 66,9 g`, `kg` allowed. No "Paino:" → `no weight in the listing`; "Paino: 0 g" → `weight not stated (0 g)`; no number, or one below 0.333 for gold / 0.3 for silver (a year such as 1964) → `fineness not stated`.
-- `br` = gross weight: silver counts `brSilverShare`; gold br is check by hand. Then valued as in 02.
+- `br` = gross weight: silver counts `brSilverShare`; gold br is left out (spec 05). Then valued as in 02.
 
 **Bid steps** (auction terms; the same rule as the site's `nextBidStep`): below 50 € +2, below 100 € +5, below 300 € +10, below 1000 € +20, below 2000 € +50, then +100, on a grid from the band's lower edge (50 → 55, 290 → 300, 1000 → 1050).
 
 **Advice** (`adviseLot`)
-- Limit as in 02: metal value × 1.05 (gold) / 1.03 (silver), rounded down.
-- **Max bid** = the highest amount reachable from `next` by bid steps that is not above the limit.
+- Limits of the lot's category (spec 05): `max` and `buyAt`, rounded down as in 02.
+- **Max bid** = the highest amount reachable from `next` by bid steps that is not above `max`.
 
 | Verdict | When |
 |---|---|
-| `buy` | valued, open, `next` ≤ limit; gives `maxBid`, `next`, `limit`, distance to spot at `next` |
-| `skip` | valued, `next` > limit |
+| `buy` | valued, open, `next` ≤ `buyAt`; gives `maxBid`, `next`, `limit` (= `max`), distance to spot at `next` |
+| `skip` | valued, `next` > `buyAt` |
 | `closed` | its closing time has passed |
 | `check` | not valued, or no next bid |
 
@@ -70,9 +70,9 @@ The agent does not depend on these weekdays: it reads whatever is listed.
 
 - [ ] Saved old-site lists: gold / other 63 lots, silver / other 87 lots; the first gold lot is `FI3.20261021.A27842`, "Kultamitali, Ø 16mm, 585, Paino: 1,5 g", 110 €, closes 21.10.2026 19:08:30, Myyrmäen Pantti.
 - [ ] For every saved lot with bids, the list's next bid equals the step rule applied to the current bid.
-- [ ] "4 dukaattia, 986, Paino: 14 g" in gold is 13.804 g fine; at 100 €/g the limit is 1449 € and with next 1200 € the max bid is 1400 €.
+- [ ] "4 dukaattia, 986, Paino: 14 g" (gold coins, max +5 %) is 13.804 g fine; at 100 €/g the limit is 1449 € and with next 1200 € the max bid is 1400 €.
 - [ ] Max bid: limit 287 €, next 250 € → 280 €; limit 109.90 €, next 110 € → none.
-- [ ] "Paino: 0 g", no weight, a year before "Paino", gold and silver words, plated words and br gold are all check by hand.
+- [ ] "Paino: 0 g", no weight, a year before "Paino", gold and silver words and plated words are check by hand; br gold is left out.
 - [ ] The saved gold list groups into Hakaniemi 29.10., Vuosaari 26.10. (42 lots), Myyrmäki 21.10. and Myyrmäki 4.11.
 - [ ] New-site JSON with one open and one closed lot gives one lot with next = `bidStartAmount`.
 

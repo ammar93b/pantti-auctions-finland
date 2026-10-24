@@ -13,7 +13,8 @@ process.env.NTFY_TOPIC = 'test-topic';
 const state = require('../src/state');
 const agent = require('../src/agent');
 const { minutesOf, minutesLabel } = require('../src/common');
-const CFG = require('../config');
+const CFG = require('./cfg');
+const env = require('../src/env');
 
 const H = 3600e3;
 const CLOSE = Date.parse('2026-10-26T17:00:00Z'); // Mon 26.10. 19:00 Helsinki (winter time)
@@ -24,7 +25,7 @@ const cfg = { ...CFG, notify: { ...CFG.notify, whenListed: true, beforeClosing: 
 
 const lot = (id, verdict) => ({
   id, title: `lot ${id}`, url: `https://example.fi/${id}`, closesAt: new Date(CLOSE).toISOString(),
-  value: { status: 'ok', metal: 'gold', meltEur: 1000 },
+  category: 'goldCoins', value: { status: 'ok', metal: 'gold', meltEur: 1000 },
   advice: verdict === 'buy' ? { verdict, next: 900, limit: 1050, maxBid: 1050, vsSpot: -0.1 } : { verdict: 'skip', next: 1200, limit: 1050, vsSpot: 0.2 },
 });
 const auction = { key: 'fake-A', source: 'fake', site: 'Fake', title: 'Fake auction', closesAt: new Date(CLOSE).toISOString(), url: 'https://example.fi', where: 'pickup at Vuosaari', proxyBids: true };
@@ -52,7 +53,7 @@ test('listed once, then 10 h and 30 min before closing; nothing else', async () 
   const src = site([lot('1', 'buy'), lot('2', 'skip')]);
   assert.equal((await run(at(5 * 24 * H), src, p)).status, 'done'); // Wed 21.10. 19:00: listing check
   assert.equal(p.sent.length, 1);
-  assert.match(p.sent[0], /^🏛 Fake auction: 2 lots listed · 1 under your limit$/);
+  assert.match(p.sent[0], /^🏛 Fake auction: 2 lots listed · 1 🟢$/);
   assert.equal((await run(at(5 * 24 * H - 10 * 60e3), src, p)).status, 'idle'); // 10 min later: nothing due
   await run(at(5 * 24 * H - 2 * H), src, p); // a later listing check: nothing new
   assert.equal(p.sent.length, 1);
@@ -92,7 +93,7 @@ test('lots added later: a message only when a new lot is under the limit', async
   await run(at(4 * 24 * H), src, p); // only over-the-limit lots added: silent
   lots.push(lot('3', 'buy'));
   await run(at(3 * 24 * H), src, p);
-  assert.deepEqual(p.sent, ['🏛 Fake auction: 1 lot listed · 0 under your limit', '🏛 Fake auction: 1 new lot · 1 under your limit']);
+  assert.deepEqual(p.sent, ['🏛 Fake auction: 1 lot listed · 0 🟢', '🏛 Fake auction: 1 new lot · 1 🟢']);
   assert.deepEqual(state.load().auctions['fake-A'].announced, ['1', '2', '3']);
 });
 
@@ -149,10 +150,56 @@ test('reminder times are written like 10h, 30min, 1h30min', () => {
   assert.deepEqual(agent.reminderMinutes({ notify: { beforeClosing: ['30min', '10h', '30min'] } }), [600, 30]);
 });
 
-test('the default settings: listed, 10 h and 30 min before closing; gold +5 %, silver +3 %', () => {
-  assert.equal(CFG.notify.whenListed, true);
-  assert.deepEqual(agent.reminderMinutes(CFG), [600, 30]);
-  assert.deepEqual(CFG.maxOverSpot, { gold: 1.05, silver: 1.03 });
+test('the default settings: listed, 10 h and 30 min before closing; the four categories', () => {
+  const REAL = require('../config');
+  assert.equal(REAL.notify.whenListed, true);
+  assert.deepEqual(agent.reminderMinutes(REAL), [600, 30]);
+  assert.deepEqual(Object.keys(REAL.categories), ['goldCoins', 'silverCoins', 'junkGold', 'junkSilver']);
+  assert.equal(REAL.minMetalEur, 30);
+});
+
+test('limits from .env: % of metal value from -50 to 100; ALERT defaults to MAX and is never above it', () => {
+  assert.equal(env.pct('5'), 5);
+  assert.equal(env.pct('-5'), -5);
+  assert.equal(env.pct('2.5'), 2.5);
+  for (const bad of [undefined, '', ' ', 'abc', '-51', '101']) assert.equal(env.pct(bad), 0);
+  process.env.T1_MAX_PCT = '0'; process.env.T1_ALERT_PCT = '-5';
+  assert.deepEqual(env.limitsOf('T1'), { maxPct: 0, alertPct: -5 });
+  process.env.T2_MAX_PCT = '5';
+  assert.deepEqual(env.limitsOf('T2'), { maxPct: 5, alertPct: 5 });
+  process.env.T3_MAX_PCT = '0'; process.env.T3_ALERT_PCT = '10';
+  assert.deepEqual(env.limitsOf('T3'), { maxPct: 0, alertPct: 0 });
+  assert.deepEqual(env.limitsOf('UNSET'), { maxPct: 0, alertPct: 0 });
+});
+
+test('an auction\'s closing time only moves earlier, so later lots don\'t shift its reminders', async () => {
+  reset();
+  const p = phone();
+  const lots = [lot('1', 'skip')];
+  let closesAt = new Date(CLOSE).toISOString();
+  const src = { ...site(lots), listed: async () => [{ auction: { ...auction, closesAt }, lots }] };
+  await run(at(3 * 24 * H), src, p);
+  closesAt = new Date(CLOSE + 2 * H).toISOString(); // the first lot has closed: the next one is later
+  await run(at(2 * 24 * H), src, p);
+  assert.equal(state.load().auctions['fake-A'].closesAt, new Date(CLOSE).toISOString());
+});
+
+test('messages: lots in the four categories, each with its own 🟢 price', () => {
+  const { listedMessage, reminderMessage } = require('../src/messages');
+  const mk = (id, category, verdict, metal = 'gold') => ({
+    ...lot(id, verdict), category, value: { status: 'ok', metal, meltEur: 1000 },
+  });
+  const lots = [mk('1', 'goldCoins', 'buy'), mk('2', 'junkSilver', 'buy', 'silver'), mk('3', 'junkGold', 'skip'),
+    { id: '4', title: 'lot 4', value: { status: 'check', reason: 'fineness not stated' }, advice: { verdict: 'check' } }];
+  const m = listedMessage(auction, lots, { cfg, reminders: [600, 30] });
+  assert.match(m.title, /4 lots listed · 2 🟢$/);
+  assert.match(m.message, /3 valued by weight, 1 to check by hand/);
+  const heads = m.message.split('\n').filter(l => l.startsWith('— ')).map(l => l.split(':')[0]);
+  assert.deepEqual(heads, ['— Gold coins & bars', '— Junk gold', '— Junk silver']);
+  assert.match(m.message, /— Junk silver: 1 · 1 🟢 \(🟢 at −5,0 % · max 0,0 % vs metal\)/);
+  const r = reminderMessage(auction, lots, 30, { cfg });
+  assert.match(r.title, /closes in 30 min: 2 to bid on/);
+  assert.deepEqual(r.message.split('\n').filter(l => l.startsWith('— ')).map(l => l.split(' (')[0]), ['— Gold coins & bars', '— Junk silver']);
 });
 
 test.after(() => reset());

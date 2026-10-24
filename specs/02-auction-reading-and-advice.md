@@ -44,7 +44,7 @@ Code only, no AI: the auction's own table gives weight and fineness, the public 
 |---|---|---|
 | `H925`, `H830`, `585` | 0.925, 0.830, 0.585 | no |
 | `H925BR`, `585BR`, `585br` | 0.925, 0.585 | yes (gross weight) |
-| `TH925` (seen in the jewellery list) | 0.925 | no |
+| `TH925` (the jewellery list; the leading T is ignored) | 0.925 | no |
 | `999,9`, `9999` | 0.9999 | no |
 | `1000` | 1.000 | no |
 | anything else (`HOP`, empty) | not stated | — |
@@ -56,18 +56,18 @@ Code only, no AI: the auction's own table gives weight and fineness, the public 
 
 **Valuation** (`valueLot`, sums with `valueParts` in `src/common.js`)
 - Every row must state metal, fineness and weight (> 0 g), and all rows the same metal. Otherwise **check by hand** with the reason: `metal not stated (…)`, `fineness not stated (…)`, `weight not stated`, `gold and silver in one lot`, `no weight in the listing`.
-- **BR rows:** silver counts only `config.brSilverShare` = **0.30** of the gross weight (1000 g of 830 BR = 300 g silver = 249 g fine). A BR **gold** row is check by hand: `gross (br) gold: the gold share is not known`.
+- **BR rows:** silver counts only `config.brSilverShare` = **0.30** of the gross weight (1000 g of 830 BR = 300 g silver = 249 g fine). A BR **gold** row leaves the whole lot out (`gross (br) gold`, spec 05).
 - `fineG` = Σ (weight × [BR share] × fineness), 4 decimals. `meltEur` = `fineG` × spot €/g of the metal, to the cent.
 
 **Spot** (`src/spot.js`): `https://api.gold-api.com/price/XAU` and `/XAG` (USD per troy ounce) × the ECB rate from `https://api.frankfurter.dev/v1/latest?from=USD&to=EUR`; €/g = €/oz ÷ 31.1035. Missing or zero → the run fails (never an old price).
 
-**Limit** = `meltEur × maxOverSpot` of the lot's category (spec 05; until set: gold 1.05, silver 1.03), rounded **down** (to 10 cents under 100 €, whole euros from 100 €).
+**Limits** of the lot's category (spec 05): `max` and `buyAt`, each metal value × (1 + % / 100), rounded **down** (to 10 cents under 100 €, whole euros from 100 €).
 
 **Advice from the list only** (the listing message, `preview`)
-- No bids yet (`startingPrice`): next bid = the start price → `buy` when ≤ limit, else `skip`.
-- With bids: the next bid is above the shown price, so a price ≥ limit is `skip`; below it is `open` (shown as "has bids, now X; limit Y").
+- No bids yet (`startingPrice`): next bid = the start price → `buy` when ≤ `buyAt`, else `skip`.
+- With bids: the next bid is above the shown price, so a price ≥ `buyAt` is `skip`; below it is `open` (shown as "has bids, now X; 🟢 at Y").
 
-**Bid feed** (reminders and `--show`, one valued lot at a time)
+**Bid feed** (reminders and `--show`, one lot at a time, only for lots whose list-only advice is `buy` or `open`: a lot already above its 🟢 price can only go up)
 - `GET <lot url>`; read `pageitemid = <number>`.
 - `POST https://huutokauppa.pantti.fi/ajax/bid.json`, form `mode=getBids&item=<id>`, headers `X-Requested-With: XMLHttpRequest` and `Referer: <lot url>`. The same call the lot page makes.
 - Read `status` ("ok"), `data.bid_start`, `data.top_bid` (0 = no bids), `data.min_raise`, `data.timeleft` (seconds), `biddingallowed`. The page's own "Minimikorotus" field is stale and is never used.
@@ -77,8 +77,8 @@ Code only, no AI: the auction's own table gives weight and fineness, the public 
 
 | Verdict | When |
 |---|---|
-| `buy` | valued, bidding allowed, time left > 0, next bid ≤ limit |
-| `skip` | valued, next bid > limit |
+| `buy` | valued, bidding allowed, time left > 0, next bid ≤ `buyAt` |
+| `skip` | valued, next bid > `buyAt` |
 | `closed` | bidding not allowed or time left ≤ 0 |
 | `check` | not valued, or no bid data |
 
@@ -89,9 +89,9 @@ Code only, no AI: the auction's own table gives weight and fineness, the public 
 - [ ] Auction 966 from Friday 16.10.2026 17:00 Helsinki (14:00 UTC) until Tuesday 20.10.2026 18:00; 967 from Friday 23.10.2026 17:00; 968 from Friday 30.10.2026 17:00 (15:00 UTC, winter time).
 - [ ] With the saved pages: 30 + 8 coin lots, 30 silver lots on page 1; lot 190 has one row `2 KULTARAHAA · 1,7 · 999,9`; lot 15 has four rows.
 - [ ] Lot 190 is 1.6998 g fine gold; lot 15 values its three BR rows at 30 %.
-- [ ] `1000 g, H830BR` alone is 249 g fine silver; `10 g, KULTAKORU, H585BR` is check by hand.
+- [ ] `1000 g, H830BR` alone is 249 g fine silver; `10 g, KULTAKORU, H585BR` is left out.
 - [ ] Bid feed fixture (top 200, raise 10) → next 210; no bids, start 240 → next 240.
-- [ ] Gold worth 169.98 € has the limit 178 €; silver worth 215.66 € has the limit 222 €.
+- [ ] Gold coins worth 169.98 € (max +5 %) have the limit 178 €; junk silver worth 215.66 € (🟢 at −5 %, max 0 %) is 🟢 at 204 € with the limit 215 €.
 - [ ] "päättyy 20.10. klo 18:05" for auction 966 is 20.10.2026 15:05 UTC.
 - [ ] A request that times out twice and then works is not an error.
 

@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const sp = require('../src/panttilaina');
-const CFG = require('../config');
+const CFG = require('./cfg');
 
 const FX = path.join(__dirname, 'fixtures', 'panttilaina');
 const read = (f) => fs.readFileSync(path.join(FX, f), 'utf8');
@@ -23,12 +23,12 @@ test('old site lists: every lot with number, link, text, price, next bid, bids, 
     url: 'https://www.suomenpanttilaina.fi/huutokauppa/huutokaupan-numero/?f_id=159254',
     desc: 'Kultamitali, Ø 16mm, 585, Paino: 1,5 g',
     nowPrice: 110, next: 110, bids: 0, closesLocal: '2026-10-21 19:08:30',
-    category: 'Kulta / Muut', office: 'Myyrmäen Pantti',
+    siteCategory: 'Kulta / Muut', office: 'Myyrmäen Pantti',
   });
   const s = silver();
   assert.equal(s.hits, 87);
   assert.equal(s.lots.length, 87);
-  assert.ok(s.lots.every(l => l.category === 'Hopea / Muut'));
+  assert.ok(s.lots.every(l => l.siteCategory === 'Hopea / Muut'));
 });
 
 test('a lot with bids: the list\'s next bid is the current bid plus the site\'s step', () => {
@@ -83,7 +83,7 @@ test('lot text: anything unclear is check by hand', () => {
   assert.equal(reason('Juhlaraha, nimellisarvo 50 euroa, 925/750 hopea ja kulta, Paino: 30 g', 'silver'), 'gold and silver in one lot');
   assert.equal(reason('Kynttilänjalat, kipsitäytetty, 830br, Paino: 500 g', 'silver'), 'plated or not solid metal');
   assert.equal(reason('Helsinki-mitali, 750br, Paino: 34 g', 'gold'), undefined); // parsed: br gold is refused when valued
-  assert.equal(sp.valueText('Helsinki-mitali, 750br, Paino: 34 g', 'gold', SPOT, CFG).reason, 'gross (br) gold: the gold share is not known');
+  assert.deepEqual(sp.valueText('Helsinki-mitali, 750br, Paino: 34 g', 'gold', SPOT, CFG), { status: 'hidden', reason: 'gross (br) gold' });
   // A maker's name is not a second metal
   assert.equal(sp.partOf('Hopeinen tarjotin, Kultakeskus, 830, Paino: 400 g', 'silver').metal, 'silver');
 });
@@ -97,20 +97,45 @@ test('valuation: 4 ducats 986 14 g, and br silver counted at 30 %', () => {
   assert.equal(b.brutto, true);
 });
 
-test('advice: max bid within gold +5 % / silver +3 %; over the limit; closed; check', () => {
+test('advice: gold coins max +5 %; junk 🟢 at 5 % below metal value, max bid never above it; closed; check', () => {
   const now = new Date('2026-10-21T10:00:00Z');
-  const lot = (desc, metal, next, closesAt = '2026-10-21T16:00:00.000Z') =>
-    ({ desc, metal, next, bids: 0, nowPrice: next, closesAt, value: sp.valueText(desc, metal, SPOT, CFG) });
-  // 13.804 g fine gold × 100 €/g = 1380.40 € → limit floor(1449.42) = 1449 → max bid 1400
-  const buy = sp.adviseLot(lot('4 dukaattia, 986, Paino: 14 g', 'gold', 1200), now, CFG);
+  const lot = (desc, metal, category, next, closesAt = '2026-10-21T16:00:00.000Z') =>
+    ({ desc, metal, category, next, bids: 0, nowPrice: next, closesAt, value: sp.valueText(desc, metal, SPOT, CFG) });
+  // 13.804 g fine gold × 100 €/g = 1380.40 € → max floor(1449.42) = 1449 → max bid 1400
+  const buy = sp.adviseLot(lot('4 dukaattia, 986, Paino: 14 g', 'gold', 'goldCoins', 1200), now, CFG);
   assert.equal(buy.verdict, 'buy');
   assert.equal(buy.limit, 1449);
   assert.equal(buy.maxBid, 1400);
-  assert.equal(sp.adviseLot(lot('4 dukaattia, 986, Paino: 14 g', 'gold', 1500), now, CFG).verdict, 'skip');
-  // silver 1000 g at 925 = 925 € → limit floor(952.75) = 952 → max bid 940
-  assert.equal(sp.adviseLot(lot('Erä, 925, Paino: 1000 g', 'silver', 900), now, CFG).maxBid, 940);
-  assert.equal(sp.adviseLot(lot('4 dukaattia, 986, Paino: 14 g', 'gold', 1200, '2026-10-21T09:00:00.000Z'), now, CFG).verdict, 'closed');
-  assert.equal(sp.adviseLot(lot('Viallinen neula, Paino: 1,6 g', 'gold', 50), now, CFG).verdict, 'check');
+  assert.equal(sp.adviseLot(lot('4 dukaattia, 986, Paino: 14 g', 'gold', 'goldCoins', 1500), now, CFG).verdict, 'skip');
+  // junk silver 1000 g at 925 = 925 € → 🟢 at floor(878.75) = 878, max 925 → max bid 920
+  const junk = sp.adviseLot(lot('Erä, 925, Paino: 1000 g', 'silver', 'junkSilver', 860), now, CFG);
+  assert.equal(junk.verdict, 'buy');
+  assert.equal(junk.buyAt, 878);
+  assert.equal(junk.maxBid, 920);
+  assert.equal(sp.adviseLot(lot('Erä, 925, Paino: 1000 g', 'silver', 'junkSilver', 900), now, CFG).verdict, 'skip'); // −2.7 %: not 5 % below
+  assert.equal(sp.adviseLot(lot('4 dukaattia, 986, Paino: 14 g', 'gold', 'goldCoins', 1200, '2026-10-21T09:00:00.000Z'), now, CFG).verdict, 'closed');
+  assert.equal(sp.adviseLot(lot('Viallinen neula, Paino: 1,6 g', 'gold', null, 50), now, CFG).verdict, 'check');
+});
+
+test('sorting: coins & bars or junk by the text; gold rings and earrings with stones and small lots left out', () => {
+  const sort = (desc, metal, siteCategory = '') => {
+    const REAL = { gold: { eurG: 115 }, silver: { eurG: 1.55 } }; // about the spot of 25 Oct 2026
+    const l = { desc, metal, siteCategory, value: sp.valueText(desc, metal, REAL, CFG) };
+    return sp.sortLot(l, CFG) || l.category || 'check';
+  };
+  assert.equal(sort('Kultaraha Frans Josef I, 4 dukaattia, 986, Paino: 14 g', 'gold'), 'goldCoins');
+  assert.equal(sort('Kultaharkko, Umicore, A317307, 9999, Paino: 10 g', 'gold'), 'goldCoins');
+  assert.equal(sort('Juhlaraha, 10 markkaa, Itsenäinen Suomi 50 vuotta, 900, Paino: 24 g', 'silver'), 'silverCoins');
+  assert.equal(sort('Hopeinen tarjotin, Kultakeskus, 830, Paino: 400 g', 'silver'), 'junkSilver');
+  assert.equal(sort('Viisi kahvilusikkaa, 110-120mm, 813, Paino: 39,8 g', 'silver'), 'junkSilver');
+  assert.equal(sort('Vialliset koruja, 585, Paino: 17 g', 'gold'), 'junkGold');
+  assert.equal(sort('Sileä sormus, koko 15, 585, Paino: 1,3 g', 'gold'), 'junkGold');
+  assert.equal(sort('Kivisormus, koko 18, 585br, Paino: 4,1 g', 'gold', 'Kulta / Sormukset'), 'gross (br) gold');
+  assert.equal(sort('Timanttisormus 7xn.0.05ct, koko 17¾, valkokulta, 585, Paino: 4,2 g', 'gold', 'Kulta / Sormukset'), 'gold ring or earrings with stones');
+  assert.equal(sort('Helmikorvakorut, Ø 22mm, kilpsikiinnitys, 585, Paino: 13,9 g', 'gold', 'Kulta / Korvakorut'), 'gold ring or earrings with stones');
+  assert.equal(sort('Kolmet korvakorut, 925br, Paino: 5,3 g', 'silver'), 'under the minimum lot value'); // 2.28 € of silver
+  assert.equal(sort('Juhlaraha, 25 markkaa, 500, Paino: 26,7 g', 'silver'), 'under the minimum lot value'); // 20.69 €
+  assert.equal(sort('Viallinen solmioneula, Paino: 1,6 g', 'gold'), 'check');
 });
 
 test('auctions: grouped by office and day, closing at the first lot, pickup address', () => {
@@ -144,11 +169,13 @@ test('new site: lots from the JSON inside the page (field names from the site\'s
   assert.deepEqual(sp.parseNewList('<script id="auction-items-json">[]</script>', 'x'), []);
 });
 
-test('the config reads gold / other and silver / other on both sites', () => {
+test('the config reads gold / other, silver / other, silver cutlery and all gold on both sites', () => {
   const lists = CFG.sources.panttilaina.lists;
-  assert.deepEqual(lists.map(l => l.metal), ['gold', 'silver']);
-  assert.match(lists[0].url, /product_category=1&product_sub_category=8/);
-  assert.match(lists[1].url, /product_category=3&product_sub_category=21/);
-  assert.match(lists[0].newSiteUrl, /SelectedProductSubCategories=8$/);
-  assert.match(lists[1].newSiteUrl, /SelectedProductSubCategories=21$/);
+  assert.deepEqual(lists.map(l => l.metal), ['gold', 'silver', 'silver', 'gold']);
+  assert.match(lists[0].url, /product_category=1&product_sub_category=8$/);
+  assert.match(lists[1].url, /product_category=3&product_sub_category=21$/);
+  assert.match(lists[2].url, /product_category=3&product_sub_category=14$/);
+  assert.match(lists[3].url, /product_category=1&product_sub_category=$/);
+  assert.deepEqual(lists.map(l => new URL(l.newSiteUrl).search),
+    ['?SelectedProductSubCategories=8', '?SelectedProductSubCategories=21', '?SelectedProductSubCategories=14', '?SelectedProductCategories=1']);
 });

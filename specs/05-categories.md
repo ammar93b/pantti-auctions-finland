@@ -1,61 +1,73 @@
-# Spec: Item categories
+# Spec: Item categories and limits
 
 Use the following specification as your single source of truth.
 Do not make assumptions about any requirement not listed here.
 
-> **Status (25 Oct 2026):** structure agreed with the owner; code follows after the owner sets the limits (open points at the end).
-
 ## Feature
 
-Sort every valued lot from every list into one of the owner's four categories, each with its own limit, and leave out the gold rings and earrings with stones that the owner does not want.
+Sort every lot from every list into one of the owner's four categories, give each category its own limits (kept private in `.env`), and leave out the lots the owner does not want.
 
 ## Overview
 
 Both sites sell four kinds of things the owner buys (owner, 25 Oct 2026):
 
-| # | Category | What it is |
-|---|---|---|
-| 1 | **Gold coins & bars** | gold coins, bars, ingots, medals |
-| 2 | **Silver coins & bars** | silver coins, bars, medals |
-| 3 | **Junk gold** | gold jewellery, broken pieces, dental gold, other gold items |
-| 4 | **Junk silver** | cutlery, silverware, silver jewellery, other silver items |
-
-**Lists read** (`config.js`; `{auction}` = the week's auction number at Helsingin Pantti)
-
-| Site | List | Link | Gives |
+| # | Key | Category | What it is |
 |---|---|---|---|
-| Helsingin Pantti | coins & medals | `https://huutokauppa.pantti.fi/huutokauppa/{auction}/?category=5` | 1 and 2 (metal per row) |
-| Helsingin Pantti | silver | `https://huutokauppa.pantti.fi/huutokauppa/{auction}/?category=2` | 4 (a coin in it goes to 2) |
-| Helsingin Pantti | jewellery (gold) | `https://huutokauppa.pantti.fi/huutokauppa/{auction}/?category=1` | 3 (silver pieces in it: open point 1) |
-| Suomen Panttilaina | gold / other (8) | old `…/huutokauppa/?product_category=1&product_sub_category=8` · new `…/auction?SelectedProductSubCategories=8` | 1 (other gold items in it go to 3) |
-| Suomen Panttilaina | silver / other (21) | old `…/huutokauppa/?product_category=3&product_sub_category=21` · new `…/auction?SelectedProductSubCategories=21` | 2 (other silver items in it go to 4) |
-| Suomen Panttilaina | silver / cutlery (14) | old `…/huutokauppa/?product_category=3&product_sub_category=14` · new `…/auction?SelectedProductSubCategories=14` | 4 |
-| Suomen Panttilaina | gold, all subcategories (1) | old `…/huutokauppa/?product_category=1&product_sub_category=` · new `…/auction?SelectedProductCategories=1` | 3 (coins and bars in it go to 1) |
+| 1 | `goldCoins` | **Gold coins & bars** | gold coins, bars, ingots, medals |
+| 2 | `silverCoins` | **Silver coins & bars** | silver coins, bars, medals |
+| 3 | `junkGold` | **Junk gold** | gold jewellery, broken pieces, dental gold, other gold items |
+| 4 | `junkSilver` | **Junk silver** | cutlery, silverware, other silver items |
 
-Old site = `https://www.suomenpanttilaina.fi`, new site = `https://shop.suomenpanttilaina.fi`. The gold "all" list also holds every lot of gold / other: a lot in two lists is counted once (by lot number).
+**Lists read** (`config.js`; `{auction}` = the week's auction number at Helsingin Pantti). Every link was opened on 25 Oct 2026.
 
-**Metal:** Helsingin Pantti from each row (spec 02); Suomen Panttilaina from the list's `metal` (spec 04). Valuation as before (specs 02, 04).
+| Site | List (`metal`) | Link | Lots on 25 Oct | Feeds |
+|---|---|---|---|---|
+| Helsingin Pantti | coins & medals (both) | `https://huutokauppa.pantti.fi/huutokauppa/{auction}/?category=5` | 48 | 1, 2 |
+| Helsingin Pantti | silver (`silver`) | `https://huutokauppa.pantti.fi/huutokauppa/{auction}/?category=2` | 134 | 4 (a coin in it: 2) |
+| Helsingin Pantti | gold jewellery (`gold`) | `https://huutokauppa.pantti.fi/huutokauppa/{auction}/?category=1` | 885 | 3 (a coin in it: 1) |
+| Suomen Panttilaina | gold / other, sub 8 (`gold`) | old `https://www.suomenpanttilaina.fi/huutokauppa/?product_category=1&product_sub_category=8` · new `https://shop.suomenpanttilaina.fi/auction?SelectedProductSubCategories=8` | 48 | 1 (other gold items: 3) |
+| Suomen Panttilaina | silver / other, sub 21 (`silver`) | old `…/huutokauppa/?product_category=3&product_sub_category=21` · new `…/auction?SelectedProductSubCategories=21` | 62 | 2 (other silver items: 4) |
+| Suomen Panttilaina | silver / cutlery, sub 14 (`silver`) | old `…/huutokauppa/?product_category=3&product_sub_category=14` · new `…/auction?SelectedProductSubCategories=14` | 42 | 4 |
+| Suomen Panttilaina | gold, all subcategories (`gold`) | old `…/huutokauppa/?product_category=1&product_sub_category=` · new `…/auction?SelectedProductCategories=1` | 308 | 3 (coins and bars in it: 1) |
 
-**Coins & bars or junk** (`categoryOf`): by the lot's own text, whatever list it came from.
-- Coins & bars: `raha` (kultaraha, hopearaha, juhlaraha, rahasarja), `kolikko`, `dukaat`, `markka` / `markkaa` (as a coin), `harkko`, `laatta`, `unssi` / `oz`, `sovereign`, `krugerrand`, `dollari`, `rupla`, `mitali`.
+The new site (`shop.suomenpanttilaina.fi`) listed no lots on 25 Oct 2026; each of its links selects the right category. A lot that is in two lists of a site (gold / other is inside "gold, all") is read once, from the first list.
+
+**Metal:** Helsingin Pantti from each row (spec 02); a list with `metal` keeps only lots of that metal (others are left out, also check-by-hand lots whose text does not name the metal). Suomen Panttilaina: the list's `metal` (spec 04).
+
+**Coins & bars or junk** (`categoryOf`, `isCoinText`): by the lot's own text, whatever list it came from.
+- Coins & bars when the text has `raha` (kultaraha, hopearaha, juhlaraha, rahasarja), `kolikk`, `dukaat`, `harkko`, `laatta`, `unssi`, `oz`, `sovereign`, `krugerrand`, `dollari`, `rupla`, `mitali`, `markka`, `mk`. At Helsingin Pantti every row must have one (a lot mixing coins and spoons is junk).
 - Everything else of that metal: junk.
 
-**Left out: gold rings and earrings with stones** (owner, 25 Oct 2026)
-- A **gold** lot that is a **ring** (`sormus`, the site's subcategory "Sormukset") or **earrings** (`korvakoru`, `korvarengas`, `korvanappi`, `korvikset`, subcategory "Korvakorut") **and** has a stone or gross weight (`br` / `BR`, `kivi`, `timantti`, `briljantti`, `helmi`, `ct`, `safiiri`, `rubiini`, `smaragdi`, `zirkoni`, `opaali`, `granaatti`, `topaasi`, `ametisti`) is left out completely: not valued, not counted, not in any message.
-- Other gross-weight gold (a pendant or brooch with a stone) stays **check by hand** (spec 02).
+**Left out completely** (not valued, not counted, never in a message; owner, 25 Oct 2026)
+- **Gross-weight gold** (`br` / `BR` with a gold fineness), in any category.
+- **Gold rings and earrings with stones:** the text (or the site's subcategory "Sormukset" / "Korvakorut") names a ring (`sormus`) or earrings (`korvakoru`, `korvarengas`, `korvanappi`, `korvikset`) and a stone (`kivi`, `timantti`, `briljantti`, `helmi`, `ct`, `safiiri`, `rubiini`, `smaragdi`, `zirkoni`, `opaali`, `granaatti`, `topaasi`, `ametisti`) or `br`.
+- **Small lots:** metal value under `config.minMetalEur` (**30 €**), not worth a pickup trip.
+- At Helsingin Pantti's gold jewellery list: everything that is not gold (silver, bronze).
 
-**Limits** (`config.categories`): limit = metal value × the category's `maxOverSpot`, rounded down (spec 02). Until the owner sets them (open point 3), each category keeps the current limit of its metal: gold coins & bars 1.05, silver coins & bars 1.03, junk gold 1.05, junk silver 1.03.
+**Limits** (owner, 25 Oct 2026). In `.env`, never uploaded, so the owner's own numbers are not in this repository; each in % of the lot's metal value, from −50 to 100; not set = 0:
 
-**Messages** (spec 03): the listed and reminder messages show the lots in four sections, in the order above, each with its own 🟢 lines and counts. Sections with no lots are left out.
+| Category | `.env` keys | Example | Meaning of the example |
+|---|---|---|---|
+| Gold coins & bars | `GOLD_COINS_MAX_PCT` (+ optional `_ALERT_PCT`) | 5 | 🟢 and max bid up to +5 % |
+| Silver coins & bars | `SILVER_COINS_MAX_PCT` (+ optional `_ALERT_PCT`) | 5 | the same |
+| Junk gold | `JUNK_GOLD_MAX_PCT`, `JUNK_GOLD_ALERT_PCT` | 0, −5 | 🟢 only at 5 % or more below metal value; max bid never above it |
+| Junk silver | `JUNK_SILVER_MAX_PCT`, `JUNK_SILVER_ALERT_PCT` | 0, −5 | the same |
+
+The owner's principle (25 Oct 2026): buy below spot; junk never above metal value; coins and bars may go a little over it.
+
+- `max` = metal value × (1 + MAX/100), `buyAt` = metal value × (1 + ALERT/100), both rounded down (spec 02). `ALERT` defaults to `MAX` and is never above it.
+- A lot is 🟢 (`buy`) when the bid needed now ≤ `buyAt`. Suomen Panttilaina's max bid is the highest legal amount up to `max` (spec 04); Helsingin Pantti shows the next bid and `max` as the limit.
+
+**Messages** (spec 03): listed and reminder messages show the lots in four sections, in the order above, each with its count, its 🟢 count and its limits ("🟢 at −5 % · max 0 % vs metal"); empty sections are left out.
 
 ## Acceptance criteria
 
-- [ ] "Kultaraha Frans Josef I, 4 dukaattia, 986, Paino: 14 g" → gold coins & bars; "Kultaharkko, Umicore, 9999, Paino: 10 g" → gold coins & bars.
-- [ ] "Juhlaraha, 10 markkaa, 900, Paino: 24 g" in silver / other → silver coins & bars; "Hopeinen tarjotin, 830, Paino: 400 g" in silver / other → junk silver.
-- [ ] "Viisi kahvilusikkaa, 813, Paino: 39,8 g" (cutlery) → junk silver; "Viallisia koruja, 585, Paino: 17 g" → junk gold.
-- [ ] "Kivisormus, koko 18, 585br, Paino: 4,1 g", "Timanttisormus …, 585, Paino: 4,2 g" and "Helmikorvakorut, 585br, Paino: 13,9 g" are left out; "Sileä sormus, 585, Paino: 1,3 g" → junk gold.
-- [ ] A lot in both gold / other and gold (all) appears once.
-- [ ] Each category uses its own `maxOverSpot`.
+- [ ] "Kultaraha Frans Josef I, 4 dukaattia, 986, Paino: 14 g" and "Kultaharkko, Umicore, 9999, Paino: 10 g" → gold coins & bars.
+- [ ] "Juhlaraha, 10 markkaa, 900, Paino: 24 g" (silver) → silver coins & bars; "Hopeinen tarjotin, Kultakeskus, 830, Paino: 400 g" → junk silver.
+- [ ] "Viisi kahvilusikkaa, 813, Paino: 39,8 g" → junk silver; "Vialliset koruja, 585, Paino: 17 g" and "Sileä sormus, 585, Paino: 1,3 g" → junk gold.
+- [ ] "Kivisormus, 585br, Paino: 4,1 g", "Timanttisormus 7xn.0.05ct, 585, Paino: 4,2 g" and "Helmikorvakorut, 585, Paino: 13,9 g" are left out; so are "Kolmet korvakorut, 925br, Paino: 5,3 g" (2.28 € of silver) and a silver chain in Helsingin Pantti's gold list.
+- [ ] Junk silver worth 925 €: 🟢 at 878 €, max bid 920 €; asking 900 € is not 🟢.
+- [ ] `.env` `JUNK_GOLD_MAX_PCT=0`, `JUNK_GOLD_ALERT_PCT=-5` → max 0 %, 🟢 at −5 %; `ALERT=10` with `MAX=0` → 🟢 at 0 %; unset → 0 %.
 
 ## Out of scope
 
@@ -64,25 +76,19 @@ Old site = `https://www.suomenpanttilaina.fi`, new site = `https://shop.suomenpa
 
 ## Edge cases
 
-- **A coin in a junk list** (a silver commemorative coin in Helsingin Pantti's silver list): goes to coins & bars by its text.
-- **A lot whose rows mix coins and jewellery** (Helsingin Pantti): coins & bars only when every row is a coin or bar; otherwise junk.
-- **A word inside another word** ("raha" in "rahakas"): words are matched at the start of a word or as the known compounds above.
-
-## Open points (owner)
-
-1. Helsingin Pantti's category 1 is its **jewellery** list: gold, silver (`H925BR`, `TH925`) and bronze. Proposed: gold → junk gold, silver → junk silver, other metals left out silently.
-2. Medals (`mitali`) counted with coins & bars. Proposed: yes.
-3. **The four limits.** Proposed from 500 closed Suomen Panttilaina lots per list (20 Oct 2026): gold coins & bars +10 % (contested lots closed at about +12 %), silver coins & bars +3 % (closed at about spot), junk gold and junk silver below spot (the refiner pays below spot; for example −8 % and −15 %).
-4. A smallest lot worth a pickup (for example 50 € metal value). Proposed: yes, per category.
+- **A coin in a junk list** (a commemorative coin in Helsingin Pantti's silver list): goes to coins & bars by its text.
+- **Single small silver coins:** a 25 markkaa coin (500 silver, 26.7 g) holds about 21 € of silver, under the 30 € minimum, so it is left out; lots of several coins usually pass.
+- **Check-by-hand lots** (no weight or fineness) have no category; they are only counted.
 
 ## Security impact
 
-None beyond specs 02 and 04: the same public pages, two more lists per listing check.
+The owner's limits stay in `.env` (git-ignored), not in the public repository. Two more lists per site per listing check; at Helsingin Pantti the bid feed is read only for lots that may be 🟢.
 
 ## Threat modeling
 
 | Threat | Mitigation |
 |---|---|
 | A junk lot is advised with the coin limit | The category is decided by the lot's own text; a mixed lot is junk |
-| An unwanted ring or earring with a stone fills the messages | Left out completely before valuation |
-| More lists slow the run or get it blocked | 1 s between requests; listing checks hourly in the daytime |
+| Unwanted rings, earrings and br gold fill the messages | Left out completely before they are counted |
+| The owner's buying limits become public | Limits only in `.env`; `.env.example` has empty values |
+| 885 gold lots make reminders slow or get the agent blocked | Bid feed only for lots whose list price may be 🟢; 1 s between requests |
