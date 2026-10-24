@@ -215,5 +215,9 @@ test('sorting: coins & bars or junk by the rows\' text; gold only in the gold li
   assert.equal(sort(lot([['HOPEAKETJU', '24,7', 'TH925']]), gold), 'not gold'); // silver in the gold list: left out
   assert.equal(sort(lot([['KULTAINEN KIVISORMUS', '3,2', '585']]), gold), 'gold ring or earrings with stones');
   assert.equal(sort(lot([['KULTASORMUS', '0,4', '585']]), gold), 'under the minimum lot value'); // 0.234 g × 115 €/g = 27 €
-  assert.equal(sort(lot([['KAULAKORU KALEVALA PRONSSI', '', '']]), gold), 'not gold'); // unknown metal in the gold list: left out
+  assert.equal(sort(lot([['KAULAKORU KALEVALA PRONSSI', '', '']]), gold), 'not gold or silver');
+  // seen on 25 Oct 2026: a Kultakeskus (maker) silver necklace in the gold list, and a crystal vase on a silver foot
+  assert.equal(sort(lot([['KAULAKORU KULTAKESKUS OY HELKY JUVONEN EI KAIV 60.5 CM V.1973', '24,5', 'H925']]), gold), 'not gold');
+  assert.equal(sort(lot([['KULTAKETJU', '5,3', 'H925']]), gold), 'not gold'); // "gold" with a silver fineness: left out of the gold list
+  assert.equal(sort(lot([['KRISTALLIMALJAKKO HOPEAJALALLA 24 CM', '925,0', 'H813BR']]), { name: 'silver', metal: 'silver' }), 'junkSilver'); // br: 30 % counted
 });

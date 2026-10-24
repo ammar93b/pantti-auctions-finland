@@ -259,6 +259,7 @@ Helsingin Pantti's categories used here: **5** coins & medals, **2** silver, **1
 | `npm run show` | Every auction listed now: lots, values and bid advice with live bids, printed (nothing sent) |
 | `npm run show:list` | Lots and values from the lists only (fast) |
 | `npm run push` | Like `show`, and sends each auction's advice to your phone |
+| `npm run top` | Right now, across every open auction: the **5 best lots of each category**, one 🏆 message per category to your phone |
 | `npm run status` | Auctions seen, reminders sent, failures, settings, your limits |
 | `npm run test-push` | One test message |
 | `npm run log` | Recent log lines |

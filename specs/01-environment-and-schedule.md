@@ -73,6 +73,7 @@ A time written wrongly in `notify` (for example `'ten hours'`) stops the run wit
 | `npm run show` | `node run.js --show` | Every auction listed now: lots, values and advice with live bids, printed. Nothing sent |
 | `npm run show:list` | `node run.js --show --list` | Lots and values from the lists only (fast) |
 | `npm run push` | `node run.js --show --push` | Like `show`, and sends each auction's advice to the phone |
+| `npm run top` | `node run.js --top --push` | Every open auction on every site, with live bids: one 🏆 message per category with its 5 best lots (`--top N` for another number; without `--push` only printed). State is not changed |
 | `npm run test-push` | `node run.js --test-push` | One test message |
 | `npm run status` | `node run.js --status` | Auctions seen, reminders sent, failures, settings, the limits in use |
 | `npm run schedule:install` / `:remove` / `:status` / `:print` | `node scripts/schedule.js …` | The scheduled runs |

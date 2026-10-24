@@ -11,7 +11,7 @@
 const CFG = require('../config');
 const { getSpot } = require('./spot');
 const { get, post, sleep, text } = require('./http');
-const { hel, helToDate, parseEuro, parseGrams, parseFineness, NOT_SOLID, check, valueParts, limitsFor, shorten, isCoinText, categoryOf, ringWithStone } = require('./common');
+const { hel, helToDate, parseEuro, parseGrams, parseFineness, NOT_SOLID, OTHER_METAL, withoutMakers, fineFits, check, hidden, valueParts, limitsFor, shorten, isCoinText, categoryOf, ringWithStone } = require('./common');
 
 const WEEK = 7 * 86400e3;
 const SITE = 'Helsingin Pantti';
@@ -58,8 +58,9 @@ function parseEnds(s, friday) {
 // ── Lot text ────────────────────────────────────────────────────────────────
 
 // Metal from the row's own description. Plated or gilded items are never solid metal.
-function metalOf(desc) {
-  if (NOT_SOLID.test(desc)) return null;
+function metalOf(raw) {
+  const desc = withoutMakers(raw);
+  if (NOT_SOLID.test(desc) || OTHER_METAL.test(desc)) return null;
   const silver = /hope/i.test(desc);
   const gold = /kulta|kulla|gold/i.test(desc);
   if (silver && gold) return null; // e.g. a silver ring with a gold stone: check by hand
@@ -120,6 +121,7 @@ async function fetchList(auction, list, cfg = CFG) {
 function valueLot(lot, spot, cfg = CFG) {
   if (!lot.parts.length) return check('no weight in the listing');
   const parts = [];
+  if (lot.parts.some(p => OTHER_METAL.test(p.desc))) return hidden('not gold or silver');
   for (const p of lot.parts) {
     const metal = metalOf(p.desc);
     const fine = parseFineness(String(p.fine).replace(/^T(?=H?\d)/i, '')); // "TH925" in the jewellery list
@@ -127,6 +129,7 @@ function valueLot(lot, spot, cfg = CFG) {
     if (!metal) return check(`metal not stated (${p.desc || 'no description'})`);
     if (!fine) return check(`fineness not stated (${p.fine || 'empty'})`);
     if (!grams) return check('weight not stated');
+    if (!fineFits(metal, fine.value)) return check(`fineness ${p.fine} does not fit ${metal}`);
     parts.push({ metal, fine, grams });
   }
   return valueParts(parts, spot, cfg);
@@ -172,9 +175,10 @@ function sortLot(l, list, cfg = CFG) {
     l.category = categoryOf(l.value.metal, l.parts.every(p => isCoinText(p.desc)));
     return null;
   }
-  // Check by hand: in a one-metal list, only lots whose text names that metal
-  if (list.metal === 'gold' && (!/kulta|kulla|gold/i.test(text) || ringWithStone(text))) return 'not gold';
-  if (list.metal === 'silver' && !/hope/i.test(text)) return 'not silver';
+  // Check by hand: in a one-metal list, only lots whose text names that metal (and fits it)
+  const named = withoutMakers(text);
+  if (list.metal === 'gold' && (!/kulta|kulla|gold/i.test(named) || ringWithStone(text) || /does not fit gold/.test(l.value.reason))) return 'not gold';
+  if (list.metal === 'silver' && (!/hope/i.test(named) || /does not fit silver/.test(l.value.reason))) return 'not silver';
   return null;
 }
 

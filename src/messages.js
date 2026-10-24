@@ -100,6 +100,30 @@ function reminderMessage(a, lots, minutes, { cfg }) {
   };
 }
 
+// One category across every open auction: its best `n` lots now, 🟢 first, then the
+// lowest price against metal value (`npm run top`)
+function topMessage(key, items, cfg, n = 5) {
+  const c = cfg.categories[key];
+  const order = (x, y) => buyFirst(x.l, y.l);
+  const best = [...items].sort(order).slice(0, n);
+  const buy = items.filter(i => i.l.advice?.verdict === 'buy').length;
+  const lines = best.map(({ a, l }) => {
+    const x = l.advice || {};
+    const price = x.next ?? x.now ?? l.nowPrice;
+    const vs = x.vsSpot ?? (price > 0 ? price / l.value.meltEur - 1 : null);
+    const bid = x.verdict === 'buy' ? (a.proxyBids ? ` · set max bid ${eur(x.maxBid)}` : ` · bid ${eur(x.next)}`) : '';
+    const now = x.verdict === 'open' ? 'now (has bids) ' : x.next ? 'needs ' : 'now ';
+    return `${x.verdict === 'buy' ? '🟢' : '•'} ${l.title}\n    ${now}${eur(price)} (${pct(vs)} vs spot) · metal ${eur(l.value.meltEur)}${bid}${brNote(l)}\n    ${a.title} · lot ${String(l.id).split('.').pop()} · closes ${when(l.closesAt)}`;
+  });
+  return {
+    title: `🏆 ${c.name}: top ${best.length} of ${items.length} · ${buy} 🟢`,
+    message: cap([`${limitText(c)}. Best price against metal value first.`, ...lines].join('\n')),
+    priority: buy ? 'high' : 'default',
+    click: best[0]?.l.url,
+    actions: best.slice(0, 3).map(({ l }, i) => ({ action: 'view', label: `${i + 1}. ${String(l.id).split('.').pop()}`, url: l.url })),
+  };
+}
+
 const report = (msgs) => msgs.map(m => `${m.title}\n${m.message}`).join('\n\n----\n\n');
 
-module.exports = { listedMessage, reminderMessage, report, ratio, sections };
+module.exports = { listedMessage, reminderMessage, topMessage, report, ratio, sections };

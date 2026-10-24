@@ -13,6 +13,7 @@
     "show": "node run.js --show",
     "show:list": "node run.js --show --list",
     "push": "node run.js --show --push",
+    "top": "node run.js --top --push",
     "test-push": "node run.js --test-push",
     "status": "node run.js --status",
     "log": "tail -n 60 data/logs/run.log",

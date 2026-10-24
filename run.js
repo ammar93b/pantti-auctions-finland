@@ -6,6 +6,7 @@
 //   node run.js --show --push       like --show, and sends the advice to the phone
 //   node run.js --show --source panttilaina    one site only (pantti | panttilaina)
 //   node run.js --show --limit 5    only the first 5 lots of each list
+//   node run.js --top [--push]      every open auction: the 5 best lots of each category (one message each)
 //   node run.js --test-push         one test message
 //   node run.js --status            auctions seen, messages sent, settings
 
@@ -15,7 +16,7 @@ const state = require('./src/state');
 const notify = require('./src/notify');
 const agent = require('./src/agent');
 const { when, eur, pct, minutesLabel } = require('./src/common');
-const { reminderMessage } = require('./src/messages');
+const { reminderMessage, topMessage, report } = require('./src/messages');
 
 const args = process.argv.slice(2);
 const flag = (f) => args.includes(f);
@@ -78,6 +79,36 @@ async function show() {
   state.writeReport('show.txt', `${out.join('\n')}\n`);
 }
 
+// Every open auction on every site, with live advice: [{ a, l }] per valued lot
+async function everyLot(now, limit) {
+  const items = [];
+  for (const src of sourcesArg()) {
+    let found;
+    try { found = await src.listed({ now, known: {}, manual: true, limit }); } catch (err) { console.log(`⚠ ${src.name}: ${err.message}`); continue; }
+    for (const g of found) {
+      // Suomen Panttilaina's list already has the live bid; Pantti needs its bid feed
+      const lots = src.id === 'panttilaina' ? g.lots : await src.current(g.auction, { now, limit });
+      for (const l of lots) if (l.value?.status === 'ok' && l.category && l.advice?.verdict !== 'closed') items.push({ a: g.auction, l });
+    }
+  }
+  return items;
+}
+
+// The best lots of each category now, one message per category
+async function top() {
+  const n = Number(arg('--top')) > 0 ? Number(arg('--top')) : 5;
+  const items = await everyLot(new Date(), limitArg());
+  const msgs = Object.keys(CFG.categories).map(k => topMessage(k, items.filter(i => i.l.category === k), CFG, n));
+  console.log(report(msgs));
+  if (flag('--push')) {
+    for (const m of msgs) {
+      const r = await notify.push(m);
+      console.log(r.skipped ? `Not sent: ${r.skipped}` : `Sent: ${m.title}`);
+    }
+  } else console.log('\nNot sent to your phone (add --push to send).');
+  state.writeReport('top.txt', `${report(msgs)}\n`);
+}
+
 function status() {
   const st = state.load();
   console.log(`Now: ${when(new Date())} (Helsinki).`);
@@ -106,6 +137,7 @@ async function main() {
   }
   if (flag('--status')) { status(); return 0; }
   if (flag('--show')) { await show(); return 0; }
+  if (flag('--top')) { await top(); return 0; }
   state.trimLog();
   const r = await agent.runDue();
   return r.status === 'failed' ? 1 : 0;

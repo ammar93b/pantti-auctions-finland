@@ -136,6 +136,14 @@ test('sorting: coins & bars or junk by the text; gold rings and earrings with st
   assert.equal(sort('Kolmet korvakorut, 925br, Paino: 5,3 g', 'silver'), 'under the minimum lot value'); // 2.28 € of silver
   assert.equal(sort('Juhlaraha, 25 markkaa, 500, Paino: 26,7 g', 'silver'), 'under the minimum lot value'); // 20.69 €
   assert.equal(sort('Viallinen solmioneula, Paino: 1,6 g', 'gold'), 'check');
+  // seen on 25 Oct 2026 in the gold lists
+  assert.equal(sort('Sileä sormus, kaiverrettu, koko 17, palladium 500, Paino: 3,7 g', 'gold'), 'not gold or silver');
+  assert.equal(sort('Kaulakoru, Usko- Toivo- Rakkaus, RistoMatti Ratia, 925, Paino: 3,5 g', 'gold'), 'not gold (925)');
+  assert.equal(sort('Laatta-ranneketju, pituus 15cm, leveys 2-5mm, 585, Paino: 7,7 g', 'gold'), 'junkGold');
+  assert.equal(sort('Rannekoru, 750 valkokulta, Paino: 6,1 g', 'gold'), 'junkGold');
+  assert.equal(sort('Kaulakoru, 585 kelta- ja valkokulta, Paino: 3 g', 'gold'), 'junkGold');
+  assert.equal(sort('Timanttisormus 50x0.02ct, koko 18, 750 valkokulta, Paino: 6,1 g', 'gold', 'Kulta / Sormukset'), 'gold ring or earrings with stones');
+  assert.equal(sort('Lusikka, uushopea, Paino: 40 g', 'silver'), 'not gold or silver');
 });
 
 test('auctions: grouped by office and day, closing at the first lot, pickup address', () => {

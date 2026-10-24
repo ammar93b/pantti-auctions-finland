@@ -76,6 +76,21 @@ function parseFineness(code) {
 // Plated, gilded or not solid metal: never valued
 const NOT_SOLID = /kullattu|kultaus|hopeoitu|kultapinnoi|hopeapinnoi|päällys|pinnoite|täytetty|plated|vermeil|setel|kopio|replik/i;
 
+// Not gold or silver at all (palladium, platinum, bronze, brass, nickel silver): left out
+const OTHER_METAL = /palladi|platin|pronssi|messinki|uushopea|alpakka/i;
+
+// Makers' names that contain a metal word: Kultakeskus Oy, kultaseppä (goldsmith)
+const withoutMakers = (s) => String(s || '').replace(/kultakeskus\w*|kultasep\w*/gi, '');
+
+// Finenesses that exist for each metal. A silver standard (925, 830, 813) on a "gold" lot,
+// or a gold standard (585, 375) on a silver lot, means the lot is not what its list says.
+const GOLD_FINE = [0.333, 0.375, 0.417, 0.5, 0.583, 0.585, 0.75, 0.875, 0.9, 0.916, 0.917, 0.958, 0.986, 0.99, 0.995, 0.999, 0.9999, 1];
+function fineFits(metal, value) {
+  if (metal === 'gold') return GOLD_FINE.some(f => Math.abs(f - value) < 0.0005);
+  if (metal === 'silver') return value >= 0.3 && value <= 1 && ![0.375, 0.583, 0.585].includes(value);
+  return false;
+}
+
 // ── Valuation and limits ────────────────────────────────────────────────────
 
 const check = (reason) => ({ status: 'check', reason });
@@ -109,7 +124,8 @@ const floorEur = (n) => (n < 100 ? Math.floor(n * 10) / 10 : Math.floor(n));
 // ── Categories (spec 05) ────────────────────────────────────────────────────
 
 // Coins, bars and medals by the lot's own words (kultaraha, juhlaraha, harkko, dukaatti, …)
-const COIN = /raha|kolikk|dukaat|harkko|laatta|unssi|\boz\b|sovereign|krugerrand|dollari|rupla|mitali|markka|\bmk\b/i;
+// ("laatta" alone is a bar; "laatta-ranneketju" is a flat-link bracelet)
+const COIN = /raha|kolikk|dukaat|harkko|(?<![\p{L}-])laatta(?![\p{L}-])|unssi|\boz\b|sovereign|krugerrand|dollari|rupla|mitali|markka|\bmk\b/iu;
 const isCoinText = (s) => COIN.test(String(s || ''));
 
 // gold / silver + coins or not → goldCoins | silverCoins | junkGold | junkSilver
@@ -143,7 +159,7 @@ const shorten = (s, n = 60) => (s.length > n ? `${s.slice(0, n - 3)}…` : s);
 
 module.exports = {
   TZ, hel, helToDate, when, clock, minutesOf, minutesLabel,
-  parseEuro, parseGrams, parseFineness, NOT_SOLID, check, hidden, valueParts, floorEur,
+  parseEuro, parseGrams, parseFineness, NOT_SOLID, OTHER_METAL, withoutMakers, fineFits, check, hidden, valueParts, floorEur,
   isCoinText, categoryOf, ringWithStone, limitsFor,
   eur, pct, shorten,
 };

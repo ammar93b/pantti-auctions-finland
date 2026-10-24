@@ -13,7 +13,7 @@
 const CFG = require('../config');
 const { getSpot } = require('./spot');
 const { get, sleep, text } = require('./http');
-const { helToDate, parseEuro, parseGrams, parseFineness, NOT_SOLID, check, valueParts, limitsFor, shorten, isCoinText, categoryOf, ringWithStone } = require('./common');
+const { helToDate, parseEuro, parseGrams, parseFineness, NOT_SOLID, OTHER_METAL, withoutMakers, fineFits, check, hidden, valueParts, limitsFor, shorten, isCoinText, categoryOf, ringWithStone } = require('./common');
 
 const SITE = 'Suomen Panttilaina';
 const OLD_ORIGIN = 'https://www.suomenpanttilaina.fi';
@@ -50,23 +50,28 @@ function maxBidFor(limit, next) {
 
 // "Kultaraha Frans Josef I, 4 dukaattia, 1915, 986, Paino: 14 g" in a gold list → one part
 function partOf(desc, metal) {
+  if (OTHER_METAL.test(desc)) return hidden('not gold or silver');
   if (NOT_SOLID.test(desc)) return check('plated or not solid metal');
-  // Kultakeskus and kultaseppä (goldsmith) are makers' names, not metal
-  const other = metal === 'gold' ? /hope/i : /kulta|kulla|gold/i;
-  if (other.test(desc.replace(/kultakeskus\w*|kultasep\w*/gi, ''))) return check('gold and silver in one lot');
-  const m = desc.match(/(\d{3,4}(?:,\d)?)\s*(br)?\s*,?\s*Paino:\s*(\d[\d\s]*(?:,\d+)?)\s*(kg|g)\b/i);
+  // Kultakeskus and kultaseppä (goldsmith) are makers' names, not metal; "valkokulta" (white
+  // gold) and other gold colours only name a gold lot's colour
+  const named = withoutMakers(desc);
+  if (metal === 'gold' ? /hope/i.test(named) : /kulta|kulla|gold/i.test(named)) return check('gold and silver in one lot');
+  // "…, 986, Paino: 14 g", "…, 585br valkokulta, Paino: 0,7 g", "…, 585 kelta- ja valkokulta, Paino: 2 g"
+  const m = desc.match(/(\d{3,4}(?:,\d)?)\s*(br)?\s*(?:(?:\p{L}+-\s*ja\s+)?\p{L}*kulta\s*)?,?\s*Paino:\s*(\d[\d\s]*(?:,\d+)?)\s*(kg|g)\b/iu);
   if (!m) return check(/Paino:/i.test(desc) ? 'fineness not stated' : 'no weight in the listing');
   const fine = parseFineness(m[1] + (m[2] ? 'BR' : ''));
   const grams = parseGrams(m[3]);
   if (!grams) return check('weight not stated (0 g)');
   // A year or a size in front of "Paino" is not a fineness: gold 333–999.9, silver 300–999.9
   if (!fine || fine.value < (metal === 'gold' ? 0.333 : 0.3)) return check('fineness not stated');
+  // A silver standard in a gold list is a silver piece: not what the owner reads this list for
+  if (!fineFits(metal, fine.value)) return metal === 'gold' ? hidden(`not gold (${m[1]})`) : check(`fineness ${m[1]} does not fit silver`);
   return { metal, fine, grams: m[4].toLowerCase() === 'kg' ? grams * 1000 : grams };
 }
 
 function valueText(desc, metal, spot, cfg = CFG) {
   const p = partOf(desc, metal);
-  return p.status === 'check' ? p : valueParts([p], spot, cfg);
+  return p.status ? p : valueParts([p], spot, cfg); // check or hidden as it is
 }
 
 // ── The old site (Huutokauppa 1.0): server-rendered list pages ──────────────

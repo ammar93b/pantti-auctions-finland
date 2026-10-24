@@ -38,6 +38,13 @@ The new site (`shop.suomenpanttilaina.fi`) listed no lots on 25 Oct 2026; each o
 - Coins & bars when the text has `raha` (kultaraha, hopearaha, juhlaraha, rahasarja), `kolikk`, `dukaat`, `harkko`, `laatta`, `unssi`, `oz`, `sovereign`, `krugerrand`, `dollari`, `rupla`, `mitali`, `markka`, `mk`. At Helsingin Pantti every row must have one (a lot mixing coins and spoons is junk).
 - Everything else of that metal: junk.
 
+**Not gold or silver, or not the list's metal** (found on 25 Oct 2026)
+- Palladium, platinum, bronze, brass and nickel silver (`palladi`, `platin`, `pronssi`, `messinki`, `uushopea`, `alpakka`): left out.
+- Makers' names are not metal words: `Kultakeskus`, `kultaseppä` (a Kultakeskus necklace in 925 is silver).
+- The fineness must exist for the metal: gold 333, 375, 417, 500, 583, 585, 750, 875, 900, 916/917, 958, 986, 990, 995, 999, 999.9, 1000; silver 300–1000 except 375 / 583 / 585. A silver fineness (925, 830, 813) in a gold list: left out; a gold fineness in a silver list: check by hand.
+- Gold colours between fineness and weight are allowed: `750 valkokulta, Paino: 6,1 g`, `585 kelta- ja valkokulta, Paino: 2 g`.
+- `laatta` alone is a bar; `Laatta-ranneketju` is a flat-link bracelet (junk).
+
 **Left out completely** (not valued, not counted, never in a message; owner, 25 Oct 2026)
 - **Gross-weight gold** (`br` / `BR` with a gold fineness), in any category.
 - **Gold rings and earrings with stones:** the text (or the site's subcategory "Sormukset" / "Korvakorut") names a ring (`sormus`) or earrings (`korvakoru`, `korvarengas`, `korvanappi`, `korvikset`) and a stone (`kivi`, `timantti`, `briljantti`, `helmi`, `ct`, `safiiri`, `rubiini`, `smaragdi`, `zirkoni`, `opaali`, `granaatti`, `topaasi`, `ametisti`) or `br`.
