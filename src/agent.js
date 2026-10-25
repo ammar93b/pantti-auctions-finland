@@ -124,7 +124,7 @@ async function runDue({ now = new Date(), push = notify.push, sources, spotFn = 
     // The closing time only moves earlier: once the first lots have closed, the later
     // ones must not shift the auction's reminders (they were for the first lot)
     const closesAt = rec.closesAt && rec.closesAt < auction.closesAt ? rec.closesAt : auction.closesAt;
-    Object.assign(rec, { title: auction.title, closesAt, url: auction.url, where: auction.where, proxyBids: auction.proxyBids });
+    Object.assign(rec, { title: auction.title, closesAt, url: auction.url, where: auction.where, proxyBids: auction.proxyBids, listsKey: auction.listsKey });
     st.auctions[auction.key] = rec;
     state.save(st);
     const fresh = lots.filter(l => !rec.announced.includes(l.id));

@@ -221,3 +221,13 @@ test('sorting: coins & bars or junk by the rows\' text; gold only in the gold li
   assert.equal(sort(lot([['KULTAKETJU', '5,3', 'H925']]), gold), 'not gold'); // "gold" with a silver fineness: left out of the gold list
   assert.equal(sort(lot([['KRISTALLIMALJAKKO HOPEAJALALLA 24 CM', '925,0', 'H813BR']]), { name: 'silver', metal: 'silver' }), 'junkSilver'); // br: 30 % counted
 });
+
+test('an announced auction is read again only when the lists in config.js change', async () => {
+  const opened = new Date('2026-10-24T10:00:00Z'); // Saturday: auction 967 is open
+  const key = 'pantti-967';
+  const sameLists = { [key]: { announced: ['1'], listsKey: p.auctionOf({ number: 967, closes: new Date() }, [], CFG).listsKey } };
+  assert.deepEqual(await p.listed({ now: opened, known: sameLists, cfg: CFG }), []); // nothing read
+  // An auction announced before the gold list was added (no listsKey) would be read again;
+  // with no auction window at all nothing is read
+  assert.deepEqual(await p.listed({ now: new Date('2026-10-21T10:00:00Z'), known: {}, cfg: CFG }), []);
+});

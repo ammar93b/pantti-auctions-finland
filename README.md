@@ -111,6 +111,83 @@ The computer's own time zone does not matter: every time is worked out in Finnis
 
 ---
 
+## Set up your four categories (step by step)
+
+The agent always works with **four categories**:
+1. gold coins & bars
+2. silver coins & bars
+3. junk gold
+4. junk silver
+
+You decide two things for each:
+- **which links feed it**, in `config.js`;
+- **your limits**, in `.env`, which stays private.
+
+The defaults work out of the box. Change only what you want.
+
+**Step 1: choose your style.** These are examples, not advice: pick numbers that fit your own resale prices.
+
+| Style | Coins & bars | Junk |
+|---|---|---|
+| Bargain hunter | 🟢 and max at **0 %** (never above metal value) | 🟢 at **−10 %**, max **−5 %** |
+| Shop reseller (coins sell with a premium) | max **+3 %** | 🟢 at **−10 %**, max **0 %** |
+| Only follow the market | max **+10 %** | max **0 %** |
+
+**Step 2: write your limits in `.env`.** One line per value, as % of the lot's metal value:
+
+```ini
+GOLD_COINS_MAX_PCT=3        # the most you bid for gold coins & bars
+GOLD_COINS_ALERT_PCT=       # optional: 🟢 only at or below this (empty = same as MAX)
+SILVER_COINS_MAX_PCT=3
+SILVER_COINS_ALERT_PCT=
+JUNK_GOLD_MAX_PCT=0         # never bid above the metal value
+JUNK_GOLD_ALERT_PCT=-10     # 🟢 only when it can be had 10 % below it
+JUNK_SILVER_MAX_PCT=0
+JUNK_SILVER_ALERT_PCT=-10
+```
+
+**Step 3: choose the links for each category.**
+- Leave the default links as they are, add more, or remove some (see *Configure: sites and links* below).
+- Each lot is sorted into its category by its own text, so you never tell a link "this is junk". You only give the list's `metal` when it is a one-metal list.
+
+| Category | Default links |
+|---|---|
+| Gold coins & bars | Helsingin Pantti coins & medals (5) · Suomen Panttilaina gold / other (8) |
+| Silver coins & bars | Helsingin Pantti coins & medals (5) · Suomen Panttilaina silver / other (21) |
+| Junk gold | Helsingin Pantti jewellery (1, gold only) · Suomen Panttilaina all gold (1) |
+| Junk silver | Helsingin Pantti silver (2) · Suomen Panttilaina silver cutlery (14) |
+
+**Step 4: check it.**
+
+```bash
+npm run status          # shows the limits in use for each category
+npm run show:list       # every open auction, each lot with its category and value (nothing sent)
+node run.js --top       # the 5 best lots of each category now (printed, nothing sent)
+npm run top             # the same, sent to your phone: one 🏆 message per category
+```
+
+### What you can set, and its limits
+
+| Setting | Where | Allowed | Default | If outside the allowed range |
+|---|---|---|---|---|
+| `<CATEGORY>_MAX_PCT` | `.env` | −50 … 100 (%) | 0 | treated as 0 (never above the metal value) |
+| `<CATEGORY>_ALERT_PCT` | `.env` | −50 … 100 (%), never above MAX | = MAX | above MAX: lowered to MAX; invalid: = MAX |
+| `minMetalEur` | `config.js` | 0 or more (€) | 30 | 0 = no minimum |
+| `brSilverShare` | `config.js` | 0 … 1 | 0.30 | — (keep it in range) |
+| `notify.beforeClosing` | `config.js` | any number of times like `'10h'`, `'30min'`, `'1h30min'`; `[]` = none | `['10h', '30min']` | the run stops and names the wrong value |
+| `notify.listingCheckEvery` | `config.js` | a time like `'60min'` | `'60min'` | the run stops and names the wrong value |
+| `notify.listingCheckHours` | `config.js` | two times `'HH:MM'` | `['08:00', '22:00']` | — |
+| `checkEveryMinutes` | `config.js` | 5 … 60 (whole minutes) | 10 | `schedule:install` refuses and says why |
+| lists per site | `config.js` | as many as you like | 3 + 4 | — |
+
+`<CATEGORY>` is one of `GOLD_COINS`, `SILVER_COINS`, `JUNK_GOLD`, `JUNK_SILVER`.
+
+Good to know:
+- **The four categories are fixed.** A fifth one (for example platinum) needs a code change in `src/common.js` and `config.js`.
+- **Each list adds requests to every listing check and reminder.** Suomen Panttilaina: about 1 per 100 lots, on each site. Helsingin Pantti: about 1 per 30 lots. A handful of lists is fine; dozens make each check slow and impolite to the sites.
+- **Lots that are always left out,** whatever you set: gross-weight (br) gold, gold rings and earrings with stones, metals other than gold and silver, and lots under `minMetalEur`.
+- **Limits are % of metal value only.** They know nothing about collector value or your resale price, so set them with your own margin in mind.
+
 ## Configure: message times
 
 Everything is in **`config.js`**, under `notify`. After any change, nothing else is needed: the next run uses it. (Only `checkEveryMinutes` needs `npm run schedule:install` again.)

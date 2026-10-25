@@ -204,23 +204,29 @@ async function loadLots(a, { spot, limit = Infinity, cfg = CFG } = {}) {
   return [...lots.values()];
 }
 
-function auctionOf(a, lots) {
+// Which lists were read (so an announced auction is read again when lists are added)
+const listsKey = (cfg = CFG) => conf(cfg).lists.map(l => `${l.url}|${l.metal || ''}`).join(' ');
+
+function auctionOf(a, lots, cfg = CFG) {
   const first = lots.map(l => l.closesAt).sort()[0] || a.closes.toISOString();
   return {
     key: `pantti-${a.number}`, source: 'pantti', site: SITE, title: `${SITE} ${a.number}`,
-    closesAt: first, url: lots[0]?.url, where: 'online at huutokauppa.pantti.fi', proxyBids: false,
+    closesAt: first, url: lots[0]?.url, where: 'online at huutokauppa.pantti.fi', proxyBids: false, listsKey: listsKey(cfg),
   };
 }
 
-// The auction listed now (Friday 17:00 → Tuesday 18:00), unless it was already announced.
-// Pantti adds no lots after Friday, so an announced auction is not read again.
+// The auction listed now (Friday 17:00 → Tuesday 18:00), unless it was already announced
+// with the same lists. Pantti adds no lots after Friday, so it is not read again until
+// the owner changes the lists in config.js.
 async function listed({ now = new Date(), spot, known = {}, manual = false, limit, cfg = CFG } = {}) {
   const a = auctionAt(now, { any: manual, cfg });
-  if (!a || known[`pantti-${a.number}`]?.announced?.length) return [];
+  if (!a) return [];
+  const seen = known[`pantti-${a.number}`];
+  if (seen?.announced?.length && seen.listsKey === listsKey(cfg)) return [];
   spot ||= await getSpot();
   const lots = await loadLots(a, { spot, limit, cfg });
   for (const l of lots) l.advice = preview(l, cfg);
-  return [{ auction: auctionOf(a, lots), lots }];
+  return [{ auction: auctionOf(a, lots, cfg), lots }];
 }
 
 // Advice from the list alone (no bid feed): exact while a lot has no bids; with bids the
