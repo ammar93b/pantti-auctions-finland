@@ -73,14 +73,14 @@ test('a missed reminder is skipped: a computer that wakes 20 min before closing 
   await run(at(3 * 24 * H), src, p);
   await run(at(20 * 60e3), src, p);
   await run(at(10 * 60e3), src, p);
-  assert.deepEqual(p.sent.map(t => t.split(':')[0]), ['🏛 Fake auction', '⏰ Fake auction closes in 30 min']);
+  assert.deepEqual(p.sent.map(t => t.split(':')[0]), ['🏛 Fake auction', '⏰ Fake auction closes in 20 min']); // the real time left
 });
 
 test('an auction first seen when a reminder is due gets the reminder, not a listing message', async () => {
   reset();
   const p = phone();
   await run(at(9 * H), site([lot('1', 'buy')]), p); // first seen at 10:00 on the day
-  assert.deepEqual(p.sent, ['⏰ Fake auction closes in 10 h: 1 to bid on']);
+  assert.deepEqual(p.sent, ['⏰ Fake auction closes in 9 h: 1 to bid on']);
 });
 
 test('lots added later: a message only when a new lot is under the limit', async () => {
@@ -105,7 +105,7 @@ test('a reminder that fails alerts once and is sent by the next run', async () =
   assert.equal((await run(at(10 * H), src, p)).status, 'failed');
   assert.equal((await run(at(10 * H - 10 * 60e3), src, p)).status, 'failed');
   assert.equal((await run(at(10 * H - 20 * 60e3), src, p)).status, 'done');
-  assert.deepEqual(p.sent.slice(1), ['⚠ Fake auction reminder failed', '⏰ Fake auction closes in 10 h: 1 to bid on']);
+  assert.deepEqual(p.sent.slice(1), ['⚠ Fake auction reminder failed', '⏰ Fake auction closes in 9 h 40 min: 1 to bid on']);
 });
 
 test('without a topic nothing is recorded as sent, and the run says why', async () => {
@@ -200,6 +200,24 @@ test('messages: lots in the four categories, each with its own 🟢 price', () =
   const r = reminderMessage(auction, lots, 30, { cfg });
   assert.match(r.title, /closes in 30 min: 2 to bid on/);
   assert.deepEqual(r.message.split('\n').filter(l => l.startsWith('— ')).map(l => l.split(' (')[0]), ['— Gold coins & bars', '— Junk silver']);
+});
+
+test('a reminder whose reading ends after closing is not sent; one sent late says the real time left', async () => {
+  reset();
+  const p = phone();
+  const lots = [lot('1', 'buy')];
+  await run(at(3 * 24 * H), site(lots), p);
+  // The read "takes" until after closing (the Mac slept): nothing is sent, nothing is retried
+  const realNow = Date.now;
+  // the read "takes" from 10 h before closing until 1 minute after it
+  const slow = { ...site(lots), current: async () => { const base = realNow(); Date.now = () => base + 10 * H + 60e3; return lots; } };
+  try { await run(at(10 * H), slow, p); } finally { Date.now = realNow; }
+  assert.equal(p.sent.length, 1);
+  assert.ok(state.load().sent['fake-A-before-600']);
+  // A 30 min reminder whose reading takes 18 minutes says "12 min"
+  const late = { ...site(lots), current: async () => { const base = realNow(); Date.now = () => base + 18 * 60e3; return lots; } };
+  try { await run(at(30 * 60e3), late, p); } finally { Date.now = realNow; }
+  assert.match(p.sent[1], /closes in 12 min: 1 to bid on/);
 });
 
 test.after(() => reset());

@@ -43,6 +43,9 @@ const dayKey = (now) => { const h = hel(now); return `${h.y}${String(h.mo).padSt
 
 async function runDue({ now = new Date(), push = notify.push, sources, spotFn = getSpot, log = state.log, cfg = CFG } = {}) {
   sources ||= enabled(cfg);
+  // `now` moved on by the real time this run has taken (reading can take minutes)
+  const started = Date.now();
+  const nowMs = () => now.getTime() + (Date.now() - started);
   const byId = Object.fromEntries(sources.map(s => [s.id, s]));
   const offsets = reminderMinutes(cfg);
   const st = state.load();
@@ -102,7 +105,16 @@ async function runDue({ now = new Date(), push = notify.push, sources, spotFn = 
       try {
         log(`reminder ${minutesLabel(m)} before closing: ${a.title}`);
         const lots = await byId[a.source].current(a, { now, spot: await spotOnce(), cfg });
-        const msg = reminderMessage(a, lots, m, { cfg });
+        // Reading can take minutes (and a sleeping Mac pauses it): a reminder is never sent
+        // once the auction has started closing, and it says the real time left
+        const left = Math.round((Date.parse(a.closesAt) - nowMs()) / 60e3);
+        if (left <= 0) {
+          log(`reminder skipped: ${a.title} started closing while it was read`);
+          st.sent[key] = new Date().toISOString();
+          state.save(st);
+          continue;
+        }
+        const msg = reminderMessage(a, lots, left, { cfg });
         state.writeReport(`${a.key}-before-${m}.txt`, `${report([msg])}\n`);
         await send(msg);
         st.sent[key] = new Date().toISOString();
