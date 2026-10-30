@@ -15,7 +15,7 @@ Every spec follows the owner's back-end template, `_spec-template.md` (project r
 
 | # | Spec | What it covers |
 |---|---|---|
-| 01 | [Environment and schedule](01-environment-and-schedule.md) | Requirements, files, `.env`, `config.js`, commands, the scheduled runs (launchd / systemd), lock, logs |
+| 01 | [Environment and schedule](01-environment-and-schedule.md) | Requirements, files, `.env`, `config.js`, commands, the scheduled runs (launchd / systemd on a Raspberry Pi), lock, logs |
 | 02 | [Helsingin Pantti](02-auction-reading-and-advice.md) | Auction number and window, list pages, lot tables, fineness codes, BR lots, valuation, the bid feed, limits, verdicts |
 | 03 | [Messages and state](03-messages-and-state.md) | Listing checks, reminders, the messages, the state file that makes each message go out once, failure alerts |
 | 04 | [Suomen Panttilaina](04-suomen-panttilaina.md) | Old and new site lists, lot text, offices, bid steps, max bid, auctions by office and day |
@@ -44,6 +44,7 @@ Every spec follows the owner's back-end template, `_spec-template.md` (project r
 - 21 Oct 2026: repository renamed from `helsingin-pantti-agent` to `pantti-auctions-finland`.
 - 25 Oct 2026: **four categories**: gold coins & bars, silver coins & bars, junk gold, junk silver, each with its own limit. New lists: Helsingin Pantti category 1 (gold jewellery), Suomen Panttilaina silver cutlery (14) and all gold (category 1). **Gold rings and earrings with stones or br are left out.** Limits per category in `.env` (private, not in the repo): junk never above metal value and 🟢 only well below it; coins and bars may go a little over. **All gross-weight (br) gold is left out**; Helsingin Pantti's jewellery list: gold only; lots under **30 €** of metal left out.
 - No secrets in the public repo: the ntfy topic and the data stay on the owner's computer.
+- 30 Oct 2026: runs on the owner's **Raspberry Pi** too (one computer at a time): step-by-step guide in `deploy/raspberry-pi.md`; a lock left by a power cut is taken over after 2 hours.
 
 ## Keeping these specs current
 

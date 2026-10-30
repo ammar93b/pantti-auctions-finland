@@ -41,8 +41,14 @@ function pidAlive(pid) {
   try { process.kill(n, 0); return true; } catch (e) { return e.code === 'EPERM'; }
 }
 
-// Held when the lock file's process is still running; otherwise taken over. The stale
-// file is moved aside first, so two runs can't both take it.
+// A run takes a minute or two. A lock older than this was left by a run that was cut off
+// (a power cut on a Raspberry Pi): after a reboot its process id may belong to another program.
+const LOCK_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+const lockAge = () => { try { return Date.now() - fs.statSync(LOCK()).mtimeMs; } catch { return 0; } };
+
+// Held when the lock file's process is still running and the lock is younger than
+// LOCK_MAX_AGE_MS; otherwise taken over. The stale file is moved aside first, so two runs
+// can't both take it.
 function lock() {
   fs.mkdirSync(DATA, { recursive: true });
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -52,7 +58,7 @@ function lock() {
     } catch (err) {
       if (err.code !== 'EEXIST') throw err;
       const stalePid = readLock();
-      if (pidAlive(stalePid)) return false;
+      if (pidAlive(stalePid) && lockAge() < LOCK_MAX_AGE_MS) return false;
       const aside = `${LOCK()}.stale-${process.pid}`;
       try {
         fs.renameSync(LOCK(), aside);
@@ -96,4 +102,4 @@ function trimLog() {
   try { if (fs.statSync(LOG()).size > 1e6) fs.writeFileSync(LOG(), fs.readFileSync(LOG(), 'utf8').slice(-200e3)); } catch {}
 }
 
-module.exports = { load, save, lock, unlock, writeReport, log, trimLog, pidAlive };
+module.exports = { load, save, lock, unlock, writeReport, log, trimLog, pidAlive, LOCK_MAX_AGE_MS };

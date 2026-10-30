@@ -105,7 +105,8 @@ npm run status
 ```
 
 - **Mac:** a launchd agent (`fi.panttiauctions.agent`). A run missed while the Mac sleeps happens when it wakes.
-- **Raspberry Pi / Linux:** a systemd user timer (`pantti-auctions.timer`) with `Persistent=true`. The install prints one extra command, `sudo loginctl enable-linger <you>`, so it also runs without anyone logged in.
+- **Raspberry Pi / Linux:** a systemd user timer (`pantti-auctions.timer`) with `Persistent=true`. The install prints one extra command, `sudo loginctl enable-linger <you>`, so it also runs without anyone logged in. **Full step-by-step Pi setup, including moving from a Mac: [deploy/raspberry-pi.md](deploy/raspberry-pi.md).**
+- Run it on **one computer only**, or every message arrives twice.
 
 The computer's own time zone does not matter: every time is worked out in Finnish time.
 
@@ -360,6 +361,7 @@ src/notify.js        ntfy
 src/state.js         what was seen and sent (data/state.json), run lock, reports, log
 src/http.js          web requests with retries
 scripts/schedule.js  launchd / systemd install
+deploy/raspberry-pi.md  Raspberry Pi setup guide
 docs/                architecture diagram (draw.io + PNG)
 specs/               full specifications
 test/                tests and saved auction pages

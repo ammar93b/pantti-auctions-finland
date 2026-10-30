@@ -15,7 +15,7 @@ The agent has a few short jobs a week: notice new auctions, and remind the owner
 
 | What | Detail |
 |---|---|
-| Computer | A Mac (macOS 13+) or a Raspberry Pi / Linux machine with systemd, on (or asleep, for a Mac) most of the day. |
+| Computer | A Mac (macOS 13+) or a Raspberry Pi (Pi 3/4/5, Raspberry Pi OS Bookworm or newer) / Linux machine with systemd, on (or asleep, for a Mac) most of the day. The Pi setup is in `deploy/raspberry-pi.md`. |
 | Node.js | 18 or newer. Plain CommonJS, **no npm dependencies**, no `npm install`. Built-ins only: `fs`, `path`, `os`, `child_process`, global `fetch`, `AbortSignal`, `Intl`. |
 | ntfy | The ntfy app on the owner's phone, subscribed to a private topic on ntfy.sh. |
 | Network | HTTPS to `huutokauppa.pantti.fi`, `www.suomenpanttilaina.fi`, `shop.suomenpanttilaina.fi`, `api.gold-api.com`, `api.frankfurter.dev`, `ntfy.sh`. |
@@ -38,6 +38,7 @@ src/agent.js         what is due, listing checks, reminders (03)
 src/notify.js        ntfy (03)
 src/state.js         state file, run lock, reports, log (03)
 scripts/schedule.js  install / remove / status / print the scheduled runs
+deploy/raspberry-pi.md  step-by-step Raspberry Pi setup, moving from a Mac, day-to-day commands
 docs/                architecture diagram (draw.io and PNG)
 test/                tests on saved copies of the live pages (npm test)
 specs/               these specs
@@ -84,7 +85,9 @@ A time written wrongly in `notify` (for example `'ten hours'`) stops the run wit
 
 **Scheduler**
 - **macOS:** a launchd agent `fi.panttiauctions.agent` in `~/Library/LaunchAgents/` with `StartInterval` = `checkEveryMinutes × 60` and `RunAtLoad`. `ProgramArguments` = [absolute Node path, `run.js`]; `WorkingDirectory` = the project; output to `data/logs/run.log`. A run missed while the Mac sleeps happens on wake.
-- **Linux:** a systemd **user** service `pantti-auctions.service` (`Type=oneshot`) and timer `pantti-auctions.timer` with `OnCalendar=*-*-* *:00/<N>:00` and `Persistent=true`. Install prints `sudo loginctl enable-linger <user>` when lingering is off.
+- **Linux / Raspberry Pi:** a systemd **user** service `pantti-auctions.service` (`Type=oneshot`; `WorkingDirectory` = the project, written **without quotes** because systemd does not accept them there; `ExecStart` = quoted Node path and `run.js`; `Environment="PATH=…"`; output appended to `data/logs/run.log`) and timer `pantti-auctions.timer` with `OnCalendar=*-*-* *:00/<N>:00` and `Persistent=true` (a run missed while the Pi was off happens when it is back). No network target: a user service cannot wait for one, and the request retries cover a network that is not up yet.
+- **Linux install** stops with a clear message when the project path has a space (systemd takes the path as it is), and prints `sudo loginctl enable-linger <user>` when lingering is off, so runs continue after a reboot without a login.
+- **Linux status** prints the timer's next and last run, the last run's end time and result (`OK`, or the exit code and "see npm run log"), and a reminder when lingering is off.
 - The computer's own time zone does not matter: every time is worked out in `Europe/Helsinki`.
 - `install` replaces any earlier install, including one under the old name (`fi.helsinginpantti.agent`, `helsingin-pantti.*`). `remove` stops and deletes it. `status` says installed or not. `print` shows the files.
 
@@ -98,12 +101,15 @@ A time written wrongly in `notify` (for example `'ten hours'`) stops the run wit
 - [ ] A run with nothing due logs "nothing due", makes no web request and exits 0.
 - [ ] `npm run schedule:print` on macOS shows `StartInterval` 600; on Linux a timer with `OnCalendar=*-*-* *:00/10:00` and `Persistent=true`.
 - [ ] `checkEveryMinutes: 3` stops `schedule:install` with a clear message.
+- [ ] On Linux the printed service has `WorkingDirectory=<path>` without quotes; a project path with a space stops `schedule:install` with a message.
+- [ ] On a Raspberry Pi, following `deploy/raspberry-pi.md` gives a test message, a `schedule:status` with "Last run ended …: OK", and runs that continue after a reboot.
 - [ ] Without `NTFY_TOPIC`, `npm run test-push` prints "Not sent: no ntfy topic (NTFY_TOPIC in .env)".
 - [ ] No file in the repository contains the owner's ntfy topic, email address or data.
 
 ## Out of scope
 
 - A dashboard or any web server.
+- Docker images or a system-wide (root) service: it runs as the owner's user.
 - Bidding, logging in, or reading lot photos.
 - Windows.
 
@@ -112,6 +118,8 @@ A time written wrongly in `notify` (for example `'ten hours'`) stops the run wit
 - **The computer is off for a whole reminder window:** that reminder is skipped; a later one still goes out (03).
 - **Two runs at once** (a slow reminder still going): the lock keeps the second one out.
 - **A run is killed:** its lock is free as soon as its process is gone; the state shows what was already sent, so nothing is sent twice.
+- **Power cut on a Pi:** the lock file stays behind and, after the reboot, its process id may belong to another program. A lock older than 2 hours is stale whatever its process id (03).
+- **Mac and Pi both running:** every message would arrive twice. The Pi guide removes the Mac's schedule and copies `.env` and `data/` to the Pi, so auctions already announced are not announced again.
 - **Daylight saving changes:** all times are Helsinki time, computed with `Intl`.
 
 ## Security impact

@@ -56,7 +56,7 @@ Each scheduled run (01, `runDue` in `src/agent.js`) asks two questions: is a **l
 - **No lots for days:** when a site with `warnAfterDaysWithoutLots` (Suomen Panttilaina: 7) has shown no lots at all for that long, one failure alert says the lists may have moved.
 - Written to `.tmp` and renamed. A broken or missing file reads as empty. `sent` / `failed` entries older than 8 weeks and auctions 2 weeks past closing are pruned on save.
 
-**Run lock** (`data/run.lock`, the process id): created atomically (`wx`). Held when it exists and its process is alive; otherwise taken over (moved aside first, so two runs can't both take it). Only the owner removes it.
+**Run lock** (`data/run.lock`, the process id): created atomically (`wx`). Held when it exists, its process is alive and it is younger than 2 hours (`LOCK_MAX_AGE_MS`; a run takes a minute or two, and after a power cut the old process id may belong to another program); otherwise taken over (moved aside first, so two runs can't both take it). Only the owner removes it.
 
 **Reports and log**
 - Every message built is also written to `data/reports/<key>-listed.txt` / `<key>-before-<minutes>.txt`; `--show` writes `data/reports/show.txt`.

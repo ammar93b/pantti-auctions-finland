@@ -91,12 +91,10 @@ const systemctl = (...a) => execFileSync('systemctl', ['--user', ...a], { stdio:
 
 const serviceUnit = () => `[Unit]
 Description=Pantti auctions Finland (one run)
-After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=${q(ROOT)}
+WorkingDirectory=${ROOT}
 ExecStart=${q(NODE)} ${q(RUN)}
 Environment=${q(`PATH=${PATHS}`)}
 StandardOutput=append:${LOG}
@@ -126,6 +124,8 @@ const linux = {
     if (!quiet) console.log('Removed: no more scheduled runs.');
   },
   install() {
+    // systemd takes WorkingDirectory= and append: paths as they are: no quotes, so no spaces
+    if (/\s/.test(ROOT)) { console.log(`The project folder has a space in its path (${ROOT}).\nMove it to a folder without spaces, for example ~/pantti-auctions-finland, and install again.`); process.exit(1); }
     fs.mkdirSync(path.dirname(LOG), { recursive: true });
     fs.mkdirSync(UNIT_DIR, { recursive: true });
     linux.remove({ quiet: true });
@@ -138,7 +138,12 @@ const linux = {
   },
   status() {
     if (!fs.existsSync(path.join(UNIT_DIR, TIMER))) return console.log('Not installed. Run: npm run schedule:install');
-    try { console.log(systemctl('list-timers', TIMER, '--no-pager').trim()); } catch { console.log('Timer file exists but is not loaded. Run: npm run schedule:install'); }
+    try { console.log(systemctl('list-timers', TIMER, '--no-pager').trim()); } catch { return console.log('Timer file exists but is not loaded. Run: npm run schedule:install'); }
+    try {
+      const p = Object.fromEntries(systemctl('show', SERVICE, '-p', 'ExecMainExitTimestamp', '-p', 'ExecMainStatus').trim().split('\n').map((l) => l.split(/=(.*)/s).slice(0, 2)));
+      if (p.ExecMainExitTimestamp) console.log(`Last run ended ${p.ExecMainExitTimestamp}: ${p.ExecMainStatus === '0' ? 'OK' : `exit ${p.ExecMainStatus} (see npm run log)`}`);
+    } catch {}
+    if (lingering() === false) console.log(`Runs only while you are logged in. Fix: sudo loginctl enable-linger ${os.userInfo().username}`);
   },
   print() { console.log(`# ${path.join(UNIT_DIR, SERVICE)}\n${serviceUnit()}\n# ${path.join(UNIT_DIR, TIMER)}\n${timerUnit()}`); },
 };

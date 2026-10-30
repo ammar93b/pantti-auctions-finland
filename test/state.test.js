@@ -45,7 +45,12 @@ test('a lock whose process is gone is taken over; a live one is respected', () =
   assert.equal(fs.existsSync(lockFile), false);
   fs.writeFileSync(lockFile, String(process.ppid)); // a live process
   assert.equal(state.lock(), false);
-  fs.unlinkSync(lockFile);
+  // Left over from before a reboot: the id now belongs to another program, but the lock is old
+  const old = (Date.now() - state.LOCK_MAX_AGE_MS - 60000) / 1000;
+  fs.utimesSync(lockFile, old, old);
+  assert.equal(state.lock(), true);
+  state.unlock();
+  assert.equal(fs.existsSync(lockFile), false);
 });
 
 test.after(() => reset());
