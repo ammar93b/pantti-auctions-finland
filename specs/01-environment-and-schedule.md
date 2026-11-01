@@ -38,6 +38,9 @@ src/agent.js         what is due, listing checks, reminders (03)
 src/notify.js        ntfy (03)
 src/state.js         state file, run lock, reports, log (03)
 scripts/schedule.js  install / remove / status / print the scheduled runs
+scripts/docker-loop.js  the container's scheduler: a run every N minutes (Docker)
+Dockerfile, docker-compose.yml, .dockerignore  the optional container
+deploy/docker.md     Docker and Portainer guide
 deploy/raspberry-pi.md  step-by-step Raspberry Pi setup, moving from a Mac, day-to-day commands
 docs/                architecture diagram (draw.io and PNG)
 test/                tests on saved copies of the live pages (npm test)
@@ -88,6 +91,7 @@ A time written wrongly in `notify` (for example `'ten hours'`) stops the run wit
 - **Linux / Raspberry Pi:** a systemd **user** service `pantti-auctions.service` (`Type=oneshot`; `WorkingDirectory` = the project, written **without quotes** because systemd does not accept them there; `ExecStart` = quoted Node path and `run.js`; `Environment="PATH=…"`; output appended to `data/logs/run.log`) and timer `pantti-auctions.timer` with `OnCalendar=*-*-* *:00/<N>:00` and `Persistent=true` (a run missed while the Pi was off happens when it is back). No network target: a user service cannot wait for one, and the request retries cover a network that is not up yet.
 - **Linux install** stops with a clear message when the project path has a space (systemd takes the path as it is), and prints `sudo loginctl enable-linger <user>` when lingering is off, so runs continue after a reboot without a login.
 - **Linux status** prints the timer's next and last run, the last run's end time and result (`OK`, or the exit code and "see npm run log"), and a reminder when lingering is off.
+- **Docker (optional)** (`deploy/docker.md`): inside a container there is no launchd or systemd, so `scripts/docker-loop.js` is the scheduler. It starts `node run.js` as a child process, waits until the next multiple of `checkEveryMinutes` on the clock (:00, :10, … for 10), and repeats; the same 5–60 check as `schedule:install`; `SIGTERM`/`SIGINT` stop the child and exit 0; at start it deletes `data/run.lock` (it is the only runner, and after a restart the old process id may be the loop itself). `--health` exits 0 when `data/logs/run.log` was written within `2 × checkEveryMinutes + 5` minutes (every run writes a line), else 1: the compose health check. Image: `node:22-bookworm-slim` (amd64 and arm64), user `node`, `TZ=Europe/Helsinki`, `PANTTI_LOG_STDOUT=1` (the run log is also printed, so `docker logs` shows it). `docker-compose.yml`: container `pantti-auctions`, `restart: unless-stopped`, `init: true`, `./.env` mounted read-only at `/app/.env`, `./data` at `/app/data`, json-file logs capped at 3 × 2 MB. `config.js` is part of the image: a change needs `docker compose up -d --build`.
 - The computer's own time zone does not matter: every time is worked out in `Europe/Helsinki`.
 - `install` replaces any earlier install, including one under the old name (`fi.helsinginpantti.agent`, `helsingin-pantti.*`). `remove` stops and deletes it. `status` says installed or not. `print` shows the files.
 
@@ -102,6 +106,8 @@ A time written wrongly in `notify` (for example `'ten hours'`) stops the run wit
 - [ ] `npm run schedule:print` on macOS shows `StartInterval` 600; on Linux a timer with `OnCalendar=*-*-* *:00/10:00` and `Persistent=true`.
 - [ ] `checkEveryMinutes: 3` stops `schedule:install` with a clear message.
 - [ ] On Linux the printed service has `WorkingDirectory=<path>` without quotes; a project path with a space stops `schedule:install` with a message.
+- [ ] `node scripts/docker-loop.js` starts a run at once, then at every multiple of `checkEveryMinutes`; `SIGTERM` stops it with exit 0; `--health` says `ok` after a run and fails when the log is older than the limit.
+- [ ] `docker compose up -d --build` on a Mac and on a Raspberry Pi gives a container that is `healthy` after its first run, and `docker compose exec pantti node run.js --test-push` reaches the phone.
 - [ ] On a Raspberry Pi, following `deploy/raspberry-pi.md` gives a test message, a `schedule:status` with "Last run ended …: OK", and runs that continue after a reboot.
 - [ ] Without `NTFY_TOPIC`, `npm run test-push` prints "Not sent: no ntfy topic (NTFY_TOPIC in .env)".
 - [ ] No file in the repository contains the owner's ntfy topic, email address or data.
@@ -109,9 +115,10 @@ A time written wrongly in `notify` (for example `'ten hours'`) stops the run wit
 ## Out of scope
 
 - A dashboard or any web server.
-- Docker images or a system-wide (root) service: it runs as the owner's user.
+- A system-wide (root) service: the scheduled runs, and the container, run as the owner's user.
+- Publishing an image to a registry: the owner builds it from the repository.
 - Bidding, logging in, or reading lot photos.
-- Windows.
+- Windows (Docker Desktop on Windows is untested).
 
 ## Edge cases
 

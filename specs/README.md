@@ -44,6 +44,7 @@ Every spec follows the owner's back-end template, `_spec-template.md` (project r
 - 21 Oct 2026: repository renamed from `helsingin-pantti-agent` to `pantti-auctions-finland`.
 - 25 Oct 2026: **four categories**: gold coins & bars, silver coins & bars, junk gold, junk silver, each with its own limit. New lists: Helsingin Pantti category 1 (gold jewellery), Suomen Panttilaina silver cutlery (14) and all gold (category 1). **Gold rings and earrings with stones or br are left out.** Limits per category in `.env` (private, not in the repo): junk never above metal value and 🟢 only well below it; coins and bars may go a little over. **All gross-weight (br) gold is left out**; Helsingin Pantti's jewellery list: gold only; lots under **30 €** of metal left out.
 - No secrets in the public repo: the ntfy topic and the data stay on the owner's computer.
+- 1 Nov 2026: optional **Docker** setup (`Dockerfile`, `docker-compose.yml`, `scripts/docker-loop.js`, `deploy/docker.md`) so one **Portainer** page can manage Pantti and Market Watch on the Pi. Launchd / systemd stay the default; Docker is not recommended on a Mac (Docker Desktop's memory).
 - 30 Oct 2026: runs on the owner's **Raspberry Pi** too (one computer at a time): step-by-step guide in `deploy/raspberry-pi.md`; a lock left by a power cut is taken over after 2 hours.
 
 ## Keeping these specs current

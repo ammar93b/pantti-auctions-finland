@@ -134,6 +134,10 @@ npm run schedule:status     # next and last run; "Last run ended …: OK" after 
 - **Blocked websites:** if the Pi runs Pi-hole, allow `huutokauppa.pantti.fi`, `www.suomenpanttilaina.fi`, `shop.suomenpanttilaina.fi`, `api.gold-api.com`, `api.frankfurter.dev`, `ntfy.sh` and `github.com`. A blocked site shows up as a failed run in `npm run log`.
 - **After a power cut:** nothing to do. A run that was cut off leaves its lock behind; the next run takes it over (a lock older than 2 hours, or whose process is gone, is stale).
 
+## Prefer Docker and Portainer?
+
+The same program also runs as a container, managed from one Portainer page together with your other programs: see [docker.md](docker.md). Use one way or the other, not both.
+
 ## Limits of this setup
 
 - The Pi must be on and connected. If it is off through a whole reminder window, that reminder is skipped; a later one still goes out.

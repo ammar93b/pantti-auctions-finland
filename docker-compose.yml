@@ -1,0 +1,24 @@
+# Pantti auctions Finland in Docker (deploy/docker.md).
+#   mkdir -p data && cp .env.example .env   (fill in .env)
+#   docker compose up -d --build
+services:
+  pantti:
+    build: .
+    image: pantti-auctions-finland
+    container_name: pantti-auctions
+    restart: unless-stopped
+    init: true
+    environment:
+      TZ: Europe/Helsinki
+    volumes:
+      - ./.env:/app/.env:ro      # your topic and limits (read by the app itself)
+      - ./data:/app/data         # what was announced and sent: survives updates
+    healthcheck:                 # every run writes a line to the log, so it must be recent
+      test: ["CMD", "node", "scripts/docker-loop.js", "--health"]
+      interval: 5m
+      timeout: 10s
+      start_period: 3m
+      retries: 2
+    logging:
+      driver: json-file
+      options: { max-size: "2m", max-file: "3" }

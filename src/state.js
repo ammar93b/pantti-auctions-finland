@@ -89,8 +89,9 @@ function writeReport(name, textContent) {
 
 function log(...parts) {
   const line = `${new Date().toLocaleString('fi-FI')} ${parts.join(' ')}`;
-  // The scheduler already sends the output to the log file: print only in a terminal
-  if (process.stdout.isTTY) console.log(line);
+  // The scheduler already sends the output to the log file: print only in a terminal,
+  // or in Docker (PANTTI_LOG_STDOUT=1), where `docker logs` shows what is printed
+  if (process.stdout.isTTY || process.env.PANTTI_LOG_STDOUT) console.log(line);
   try {
     fs.mkdirSync(path.dirname(LOG()), { recursive: true });
     fs.appendFileSync(LOG(), `${line}\n`);
